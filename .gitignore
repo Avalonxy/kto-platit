@@ -1,0 +1,9 @@
+node_modules
+dist
+*.local
+.DS_Store
+.env
+.env.*
+
+# Служебная документация (не в репозиторий)
+README-dev.md
