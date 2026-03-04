@@ -12,7 +12,7 @@
   "dependencies": {
     "@vkontakte/vk-bridge": "^3.3.0",
     "@vkontakte/vk-bridge-react": "^2.0.0",
-    "@vkontakte/icons": "^0.22.0",
+    "@vkontakte/icons": "^1.184.0",
     "@vkontakte/vkui": "^4.15.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
