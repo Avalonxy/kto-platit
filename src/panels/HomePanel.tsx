@@ -283,7 +283,16 @@ export function HomePanel({ id, onResult }: Props) {
       <Spacing size={80} />
 
       <FixedLayout filled vertical="bottom">
-        <Div>
+        <Div
+          style={{
+            paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+            paddingLeft: 12,
+            paddingRight: 12,
+            paddingTop: 12,
+            background: 'var(--vkui--color_background_content)',
+            boxShadow: '0 -2px 12px rgba(0,0,0,0.08)',
+          }}
+        >
           <Button
             size="l"
             stretched

@@ -47,7 +47,7 @@ export default function App() {
             <TabbarItem
               selected={activePanel === 'home'}
               onClick={() => setActivePanel('home')}
-              text="Выбор"
+              text="Жеребьёвка"
             >
               <Icon28UsersOutline />
             </TabbarItem>

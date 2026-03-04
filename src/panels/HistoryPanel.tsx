@@ -35,7 +35,7 @@ export function HistoryPanel({ id, activePanel, onBack }: Props) {
       <Group header={items.length ? 'Последние выборы' : undefined}>
         {items.length === 0 ? (
           <Div style={{ color: 'var(--vkui--color_text_secondary)', textAlign: 'center' }}>
-            Пока пусто. Сделайте первый выбор на вкладке «Выбор».
+            Пока пусто. Сделайте первый выбор на вкладке «Жеребьёвка».
           </Div>
         ) : (
           items.map((item) => (
