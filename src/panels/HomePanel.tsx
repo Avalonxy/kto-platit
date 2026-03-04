@@ -7,8 +7,6 @@ import {
   Button,
   Group,
   Div,
-  FixedLayout,
-  Spacing,
   Avatar,
   Input,
   IconButton,
@@ -280,17 +278,11 @@ export function HomePanel({ id, onResult }: Props) {
         <CellButton onClick={openFriendsModal}>Добавить из друзей VK</CellButton>
       </Group>
 
-      <Spacing size={80} />
-
-      <FixedLayout filled vertical="bottom">
+      <Group>
         <Div
           style={{
-            paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
-            paddingLeft: 12,
-            paddingRight: 12,
-            paddingTop: 12,
-            background: 'var(--vkui--color_background_content)',
-            boxShadow: '0 -2px 12px rgba(0,0,0,0.08)',
+            paddingTop: 8,
+            paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
           }}
         >
           <Button
@@ -303,7 +295,7 @@ export function HomePanel({ id, onResult }: Props) {
             {choosingPhase !== 'idle' ? 'Запускаем...' : `Запустить: ${displayTitle}`}
           </Button>
         </Div>
-      </FixedLayout>
+      </Group>
 
       <ChoosingOverlay
         visible={choosingPhase !== 'idle'}
