@@ -23,6 +23,13 @@ async function run() {
     .toFile(path.join(publicDir, 'icon-small.png'));
   console.log('OK: public/icon-small.png (48×48)');
 
+  // Иконка 96×96 для LottieFiles / анимации загрузки
+  await sharp(path.join(publicDir, 'icon.svg'))
+    .resize(96, 96)
+    .png()
+    .toFile(path.join(publicDir, 'icon-96.png'));
+  console.log('OK: public/icon-96.png (96×96)');
+
   // Фавикон для VK: 32×32 (<= 50 КБ)
   await sharp(path.join(publicDir, 'icon-small.svg'))
     .resize(32, 32)

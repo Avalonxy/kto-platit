@@ -17,11 +17,7 @@ export default function App() {
     participants: Participant[];
   } | null>(null);
 
-  useEffect(() => {
-    bridge.send('VKWebAppInit').catch(() => {});
-  }, []);
-
-  // Сообщаем VK, что приложение готово — иначе на телефоне/в клиенте экран загрузки не скроется
+  // Сообщаем VK, что приложение готово — скрывается экран загрузки (VKWebAppInit уже в main.tsx)
   useEffect(() => {
     const t = requestAnimationFrame(() => {
       (bridge.send as (method: string) => Promise<unknown>)('VKWebAppReady').catch(() => {});

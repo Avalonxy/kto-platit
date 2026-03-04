@@ -18,7 +18,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "icons:png": "node scripts/icons-to-png.cjs",
-    "screenshots:vk": "node scripts/screenshots-for-vk.cjs"
+    "screenshots:vk": "node scripts/screenshots-for-vk.cjs",
+    "icon:gif": "node scripts/icon-animated-gif.cjs"
   },
   "dependencies": {
     "@vkontakte/icons": "1.213.0",
@@ -31,6 +32,7 @@
     "@types/react": "18.2.79",
     "@types/react-dom": "18.2.25",
     "@vitejs/plugin-react": "4.3.4",
+    "gif-encoder": "^0.7.2",
     "sharp": "^0.33.5",
     "typescript": "5.7.2",
     "vite": "5.4.21"
