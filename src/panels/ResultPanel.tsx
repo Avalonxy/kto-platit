@@ -49,10 +49,10 @@ export function ResultPanel({ id, result, onBack }: Props) {
           <Avatar size={96} style={{ margin: '0 auto 12px' }}>
             {winner.name[0]}
           </Avatar>
-          <Header mode="primary">
-            {winner.name}
-          </Header>
-          <p style={{ color: 'var(--vkui--color_text_secondary)', marginTop: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+            <Header mode="primary">{winner.name}</Header>
+          </div>
+          <p style={{ color: 'var(--vkui--color_text_secondary)', marginTop: 4, textAlign: 'center' }}>
             Участники: {participants.map((p) => p.name).join(', ')}
           </p>
         </Div>
