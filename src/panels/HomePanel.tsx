@@ -19,11 +19,35 @@ import {
   Spinner,
   Checkbox,
 } from '../ui';
-import { Icon28AddOutline, Icon24DeleteOutline } from '@vkontakte/icons';
+import {
+  Icon28AddOutline,
+  Icon24DeleteOutline,
+  Icon28CoffeeSteamOutline,
+  Icon28VideoOutline,
+  Icon28CarOutline,
+  Icon28ListCheckOutline,
+  Icon28ShoppingCartOutline,
+  Icon28MusicOutline,
+  Icon28LightbulbOutline,
+} from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
-import { DEFAULT_SCENARIOS } from '../constants';
+import { DEFAULT_SCENARIOS, CHOOSING_THINK_DURATION } from '../constants';
 import { addToHistory } from '../utils/history';
+import { chooseWeightedRandom } from '../utils/weightedChoice';
+import { ChoosingOverlay } from '../components/ChoosingOverlay';
 import type { Participant, Scenario } from '../types';
+
+type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
+
+const SCENARIO_ICONS: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
+  coffee: Icon28CoffeeSteamOutline,
+  film: Icon28VideoOutline,
+  driver: Icon28CarOutline,
+  duty: Icon28ListCheckOutline,
+  order: Icon28ShoppingCartOutline,
+  music: Icon28MusicOutline,
+  custom: Icon28LightbulbOutline,
+};
 
 type Props = {
   id: string;
@@ -35,12 +59,18 @@ export function HomePanel({ id, onResult }: Props) {
   const [customTitle, setCustomTitle] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [manualName, setManualName] = useState('');
-  const [isChoosing, setIsChoosing] = useState(false);
   const [friendsModalOpen, setFriendsModalOpen] = useState(false);
   const [friendsList, setFriendsList] = useState<Participant[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
+  const [choosingPhase, setChoosingPhase] = useState<ChoosingPhase>('idle');
+  const [chosenWinner, setChosenWinner] = useState<Participant | null>(null);
+  const [chosenResult, setChosenResult] = useState<{
+    scenario: Scenario;
+    winner: Participant;
+    participants: Participant[];
+  } | null>(null);
 
   const displayTitle = scenario.id === 'custom' ? customTitle || 'Свой вариант' : scenario.title;
 
@@ -65,30 +95,37 @@ export function HomePanel({ id, onResult }: Props) {
 
   const chooseRandom = useCallback(() => {
     if (participants.length < 2) return;
-    setIsChoosing(true);
-    const duration = 1500;
-    const steps = 8;
-    let step = 0;
-    const interval = setInterval(() => {
-      step += 1;
-      if (step >= steps) {
-        clearInterval(interval);
-        const winner = participants[Math.floor(Math.random() * participants.length)];
-        const finalScenario: Scenario =
-          scenario.id === 'custom' ? { ...scenario, title: displayTitle } : scenario;
-        addToHistory({
-          scenarioTitle: displayTitle,
-          scenarioEmoji: finalScenario.emoji,
-          winner,
-          participantNames: participants.map((p) => p.name),
-        });
-        setIsChoosing(false);
-        onResult(finalScenario, winner, participants);
-      }
-    }, duration / steps);
-  }, [participants, scenario, displayTitle, onResult]);
+    setChoosingPhase('thinking');
+    setChosenWinner(null);
+    setChosenResult(null);
 
-  const canChoose = participants.length >= 2 && !isChoosing;
+    const finalScenario: Scenario =
+      scenario.id === 'custom' ? { ...scenario, title: displayTitle } : scenario;
+
+    setTimeout(() => {
+      const winner = chooseWeightedRandom(participants);
+      addToHistory({
+        scenarioTitle: displayTitle,
+        scenarioEmoji: finalScenario.emoji,
+        winner,
+        participantNames: participants.map((p) => p.name),
+      });
+      setChosenWinner(winner);
+      setChosenResult({ scenario: finalScenario, winner, participants });
+      setChoosingPhase('reveal');
+    }, CHOOSING_THINK_DURATION);
+  }, [participants, scenario, displayTitle]);
+
+  const handleRevealEnd = useCallback(() => {
+    if (chosenResult) {
+      onResult(chosenResult.scenario, chosenResult.winner, chosenResult.participants);
+    }
+    setChoosingPhase('idle');
+    setChosenWinner(null);
+    setChosenResult(null);
+  }, [chosenResult, onResult]);
+
+  const canChoose = participants.length >= 2 && choosingPhase === 'idle';
 
   const openFriendsModal = useCallback(async () => {
     setFriendsModalOpen(true);
@@ -146,18 +183,58 @@ export function HomePanel({ id, onResult }: Props) {
     <Panel id={id}>
       <PanelHeader>Кто платит?</PanelHeader>
 
+      <Div
+        style={{
+          padding: '12px 16px',
+          marginBottom: 4,
+          background: 'var(--vkui--color_background_secondary, #f7f7f8)',
+          borderRadius: 12,
+          margin: '0 12px 12px',
+          fontSize: 13,
+          color: 'var(--vkui--color_text_secondary)',
+          lineHeight: 1.4,
+        }}
+      >
+        1️⃣ Добавьте участников (минимум 2) · 2️⃣ Выберите сценарий · 3️⃣ Нажмите кнопку внизу
+      </Div>
+
       <Group header={<Header mode="secondary">Сценарий</Header>}>
-        {DEFAULT_SCENARIOS.map((s) => (
-          <SimpleCell
-            key={s.id}
-            before={<span style={{ fontSize: 24 }}>{s.emoji}</span>}
-            subtitle={s.id === 'custom' ? 'Введите свой вопрос ниже' : undefined}
-            onClick={() => setScenario(s)}
-            selected={scenario.id === s.id}
-          >
-            {s.title}
-          </SimpleCell>
-        ))}
+        {DEFAULT_SCENARIOS.map((s) => {
+          const IconComponent = SCENARIO_ICONS[s.id];
+          const selected = scenario.id === s.id;
+          return (
+            <SimpleCell
+              key={s.id}
+              before={
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: selected
+                      ? 'var(--vkui--color_accent, #0077FF)'
+                      : 'var(--vkui--color_background_secondary, #f0f0f0)',
+                    color: selected ? '#fff' : 'var(--vkui--color_icon_secondary)',
+                  }}
+                >
+                  {IconComponent ? (
+                    <IconComponent style={{ width: 28, height: 28 }} />
+                  ) : (
+                    <span style={{ fontSize: 24 }}>{s.emoji}</span>
+                  )}
+                </span>
+              }
+              subtitle={s.id === 'custom' ? 'Введите свой вопрос ниже' : undefined}
+              onClick={() => setScenario(s)}
+              selected={selected}
+            >
+              {selected ? <strong>{s.title}</strong> : s.title}
+            </SimpleCell>
+          );
+        })}
         {scenario.id === 'custom' && (
           <Div>
             <Input
@@ -210,13 +287,20 @@ export function HomePanel({ id, onResult }: Props) {
             size="l"
             stretched
             disabled={!canChoose}
-            loading={isChoosing}
+            loading={choosingPhase === 'thinking'}
             onClick={chooseRandom}
           >
-            {isChoosing ? 'Выбираем...' : `Выбрать: ${displayTitle}`}
+            {choosingPhase !== 'idle' ? 'Выбираем...' : `Выбрать: ${displayTitle}`}
           </Button>
         </Div>
       </FixedLayout>
+
+      <ChoosingOverlay
+        visible={choosingPhase !== 'idle'}
+        phase={choosingPhase === 'thinking' ? 'thinking' : 'reveal'}
+        winner={chosenWinner}
+        onRevealEnd={handleRevealEnd}
+      />
 
       {friendsModalOpen && (
         <ModalRoot activeModal="friends" onClose={() => setFriendsModalOpen(false)}>
