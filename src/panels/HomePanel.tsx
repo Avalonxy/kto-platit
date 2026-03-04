@@ -99,9 +99,13 @@ export function HomePanel({ id, onResult }: Props) {
     try {
       const data = await bridge.send('VKWebAppCallAPIMethod', {
         method: 'friends.get',
-        params: { count: 100, fields: 'photo_50', v: '5.199' },
+        params: { count: 100, fields: 'photo_50', order: 'name', v: '5.199' },
       });
-      const items = data?.response?.items ?? [];
+      if (data?.error) {
+        setFriendsError('Не удалось загрузить друзей. Добавьте участников вручную.');
+        return;
+      }
+      const items = Array.isArray(data?.response?.items) ? data.response.items : [];
       const list: Participant[] = items.map((u: { id: number; first_name?: string; last_name?: string; photo_50?: string }) => ({
         id: `vk-${u.id}`,
         name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Без имени',
@@ -109,7 +113,7 @@ export function HomePanel({ id, onResult }: Props) {
         isFromVk: true,
       }));
       setFriendsList(list);
-    } catch (e) {
+    } catch {
       setFriendsError('Не удалось загрузить друзей. Добавьте участников вручную.');
     } finally {
       setFriendsLoading(false);

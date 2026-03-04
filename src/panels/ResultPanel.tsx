@@ -13,7 +13,6 @@ type Props = {
   id: string;
   result: ResultData;
   onBack: () => void;
-  onShare: () => void;
 };
 
 export function ResultPanel({ id, result, onBack }: Props) {
@@ -33,14 +32,10 @@ export function ResultPanel({ id, result, onBack }: Props) {
   const text = `${scenario.emoji} ${scenario.title}\nПобедитель: ${winner.name}`;
 
   const handleShare = () => {
-    bridge
-      .send('VKWebAppShare', { link: window.location.href })
-      .catch(() => {});
-    bridge
-      .send('VKWebAppShowWallPostBox', {
-        message: text,
-      })
-      .catch(() => {});
+    bridge.send('VKWebAppShowWallPostBox', {
+      message: text,
+      attachments: window.location.href,
+    }).catch(() => {});
   };
 
   return (

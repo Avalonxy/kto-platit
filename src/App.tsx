@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import bridge from '@vkontakte/vk-bridge';
-import { AppRoot, SplitLayout, SplitCol, View, Epic, Tabbar, TabbarItem } from '@vkontakte/vkui';
+import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from '@vkontakte/vkui';
 import { Icon28UsersOutline, Icon28HistoryOutline } from '@vkontakte/icons';
 import { HomePanel } from './panels/HomePanel';
 import { ResultPanel } from './panels/ResultPanel';
@@ -18,7 +18,7 @@ export default function App() {
   } | null>(null);
 
   useEffect(() => {
-    bridge.send('VKWebAppInit');
+    bridge.send('VKWebAppInit').catch(() => {});
   }, []);
 
   const openResult = (scenario: Scenario, winner: Participant, participants: Participant[]) => {
@@ -36,7 +36,6 @@ export default function App() {
               id="result"
               result={resultData}
               onBack={() => setActivePanel('home')}
-              onShare={() => {}}
             />
             <HistoryPanel id="history" activePanel={activePanel} onBack={() => setActivePanel('home')} />
           </View>
