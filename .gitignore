@@ -5,5 +5,8 @@ dist
 .env
 .env.*
 
-# Служебная документация (не в репозиторий)
+# Служебная документация и скрипты (не в репозиторий)
 README-dev.md
+ИСПРАВИТЬ-ДАТЫ.md
+fix-commit-dates.bat
+setup-git-history.bat
