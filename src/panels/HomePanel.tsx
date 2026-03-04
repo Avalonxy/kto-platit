@@ -213,6 +213,7 @@ export function HomePanel({ id, onResult }: Props) {
                     justifyContent: 'center',
                     width: 44,
                     height: 44,
+                    marginRight: 12,
                     borderRadius: 12,
                     background: selected
                       ? 'var(--vkui--color_accent, #0077FF)'
@@ -290,7 +291,7 @@ export function HomePanel({ id, onResult }: Props) {
             loading={choosingPhase === 'thinking'}
             onClick={chooseRandom}
           >
-            {choosingPhase !== 'idle' ? 'Выбираем...' : `Выбрать: ${displayTitle}`}
+            {choosingPhase !== 'idle' ? 'Запускаем...' : `Запустить: ${displayTitle}`}
           </Button>
         </Div>
       </FixedLayout>
