@@ -1,4 +1,4 @@
-import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '@vkontakte/vkui';
+import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '../ui';
 import { Icon24ShareOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import type { Participant, Scenario } from '../types';
@@ -49,7 +49,7 @@ export function ResultPanel({ id, result, onBack }: Props) {
           <Avatar size={96} style={{ margin: '0 auto 12px' }}>
             {winner.name[0]}
           </Avatar>
-          <Header mode="primary" size="large">
+          <Header mode="primary">
             {winner.name}
           </Header>
           <p style={{ color: 'var(--vkui--color_text_secondary)', marginTop: 4 }}>

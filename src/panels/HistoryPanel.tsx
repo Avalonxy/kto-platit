@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button } from '@vkontakte/vkui';
+import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button } from '../ui';
 import { getHistory } from '../utils/history';
 import type { HistoryItem } from '../types';
 
@@ -28,7 +28,7 @@ export function HistoryPanel({ id, activePanel, onBack }: Props) {
 
   return (
     <Panel id={id}>
-      <PanelHeader before={<Button mode="plain" onClick={onBack}>Назад</Button>}>
+      <PanelHeader before={<Button mode="tertiary" onClick={onBack}>Назад</Button>}>
         История
       </PanelHeader>
 

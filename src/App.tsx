@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import bridge from '@vkontakte/vk-bridge';
-import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from '@vkontakte/vkui';
-import { Icon28UsersOutline, Icon28HistoryOutline } from '@vkontakte/icons';
+import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from './ui';
+import { Icon28UsersOutline, Icon28StoryOutline } from '@vkontakte/icons';
 import { HomePanel } from './panels/HomePanel';
 import { ResultPanel } from './panels/ResultPanel';
 import { HistoryPanel } from './panels/HistoryPanel';
@@ -52,7 +52,7 @@ export default function App() {
               onClick={() => setActivePanel('history')}
               text="История"
             >
-              <Icon28HistoryOutline />
+              <Icon28StoryOutline />
             </TabbarItem>
           </Tabbar>
         </SplitCol>

@@ -18,7 +18,7 @@ import {
   ModalPageHeader,
   Spinner,
   Checkbox,
-} from '@vkontakte/vkui';
+} from '../ui';
 import { Icon28AddOutline, Icon24DeleteOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import { DEFAULT_SCENARIOS } from '../constants';
@@ -97,10 +97,11 @@ export function HomePanel({ id, onResult }: Props) {
     setFriendsList([]);
     setSelectedFriendIds(new Set());
     try {
-      const data = await bridge.send('VKWebAppCallAPIMethod', {
-        method: 'friends.get',
-        params: { count: 100, fields: 'photo_50', order: 'name', v: '5.199' },
-      });
+      // В мини-приложениях access_token подставляется автоматически
+      const data = await (bridge.send as (method: string, params?: unknown) => Promise<{ response?: { items?: Array<{ id: number; first_name?: string; last_name?: string; photo_50?: string }> }; error?: unknown }>)(
+        'VKWebAppCallAPIMethod',
+        { method: 'friends.get', params: { count: 100, fields: 'photo_50', order: 'name', v: '5.199' } },
+      );
       if (data?.error) {
         setFriendsError('Не удалось загрузить друзей. Добавьте участников вручную.');
         return;
@@ -165,7 +166,7 @@ export function HomePanel({ id, onResult }: Props) {
 
       <Group
         header={<Header mode="secondary">Участники ({participants.length})</Header>}
-        subheader="Минимум 2 человека"
+        description="Минимум 2 человека"
       >
         {participants.map((p) => (
           <SimpleCell
