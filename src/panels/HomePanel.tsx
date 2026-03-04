@@ -96,14 +96,19 @@ export function HomePanel({ id, onResult }: Props) {
     setFriendsError(null);
     setFriendsList([]);
     setSelectedFriendIds(new Set());
+    const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (!isInVK) {
+      setFriendsError('Друзья доступны только в приложении ВКонтакте. Откройте мини-приложение в VK (не в браузере) или добавьте участников вручную.');
+      setFriendsLoading(false);
+      return;
+    }
     try {
-      // В мини-приложениях access_token подставляется автоматически
       const data = await (bridge.send as (method: string, params?: unknown) => Promise<{ response?: { items?: Array<{ id: number; first_name?: string; last_name?: string; photo_50?: string }> }; error?: unknown }>)(
         'VKWebAppCallAPIMethod',
         { method: 'friends.get', params: { count: 100, fields: 'photo_50', order: 'name', v: '5.199' } },
       );
       if (data?.error) {
-        setFriendsError('Не удалось загрузить друзей. Добавьте участников вручную.');
+        setFriendsError('Не удалось загрузить друзей. Проверьте, что у приложения включён доступ к друзьям в настройках VK, или добавьте участников вручную.');
         return;
       }
       const items = Array.isArray(data?.response?.items) ? data.response.items : [];
@@ -115,7 +120,7 @@ export function HomePanel({ id, onResult }: Props) {
       }));
       setFriendsList(list);
     } catch {
-      setFriendsError('Не удалось загрузить друзей. Добавьте участников вручную.');
+      setFriendsError('Не удалось загрузить друзей. Откройте приложение в ВКонтакте или добавьте участников вручную.');
     } finally {
       setFriendsLoading(false);
     }
