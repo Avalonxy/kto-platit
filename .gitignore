@@ -9,6 +9,7 @@ dist
 docs/
 
 # Служебная документация и скрипты (не в репозиторий)
+scripts/
 README-dev.md
 ИСПРАВИТЬ-ДАТЫ.md
 fix-commit-dates.bat
