@@ -38,7 +38,7 @@ export const CellButton: FC<{ children?: ReactNode; onClick?: () => void }> = VK
 export const FixedLayout: FC<{ filled?: boolean; vertical?: string; children?: ReactNode }> = VK.FixedLayout as FC<any>;
 export const Spacing: FC<{ size?: number }> = VK.Spacing as FC<any>;
 export const ModalRoot: FC<{ activeModal?: string; onClose?: () => void; children?: ReactNode }> = VK.ModalRoot as FC<any>;
-export const ModalPage: FC<{ id: string; onClose?: () => void; children?: ReactNode }> = VK.ModalPage as FC<any>;
+export const ModalPage: FC<{ id: string; onClose?: () => void; settlingHeight?: number; children?: ReactNode }> = VK.ModalPage as FC<any>;
 export const ModalPageHeader: FC<{ children?: ReactNode }> = VK.ModalPageHeader as FC<OptionalChildren>;
 export const Spinner: FC<{ size?: string }> = VK.Spinner as FC<any>;
 export const Checkbox: FC<{ checked?: boolean; onChange?: () => void }> = VK.Checkbox as FC<any>;

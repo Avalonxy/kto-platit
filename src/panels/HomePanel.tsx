@@ -220,7 +220,11 @@ export function HomePanel({ id, onResult }: Props) {
 
       {friendsModalOpen && (
         <ModalRoot activeModal="friends" onClose={() => setFriendsModalOpen(false)}>
-          <ModalPage id="friends" onClose={() => setFriendsModalOpen(false)}>
+          <ModalPage
+            id="friends"
+            onClose={() => setFriendsModalOpen(false)}
+            settlingHeight={100}
+          >
             <ModalPageHeader>Друзья VK</ModalPageHeader>
             {friendsLoading ? (
               <Div><Spinner size="large" /></Div>
@@ -245,7 +249,7 @@ export function HomePanel({ id, onResult }: Props) {
                     </SimpleCell>
                   ))}
                 </Group>
-                <Div>
+                <Div style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
                   <Button size="l" stretched onClick={addSelectedFriends}>
                     Добавить выбранных ({selectedFriendIds.size})
                   </Button>
