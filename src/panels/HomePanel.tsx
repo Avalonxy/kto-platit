@@ -175,10 +175,11 @@ export function HomePanel({ id, onResult }: Props) {
     }
   }, [addParticipant]);
 
+  // Ширина как у Group (3-й островок): боковые отступы 16px
   const islandStyle = {
-    margin: '0 12px 12px',
-    marginLeft: 'max(12px, env(safe-area-inset-left, 0px))',
-    marginRight: 'max(12px, env(safe-area-inset-right, 0px))',
+    margin: '0 16px 12px',
+    marginLeft: 'max(16px, env(safe-area-inset-left, 0px))',
+    marginRight: 'max(16px, env(safe-area-inset-right, 0px))',
     background: 'var(--vkui--color_background_content, #fff)',
     borderRadius: 12,
   } as const;
@@ -299,7 +300,7 @@ export function HomePanel({ id, onResult }: Props) {
       <Group>
         <Div
           style={{
-            padding: '10px 16px',
+            padding: '8px 16px',
             paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))',
             paddingRight: 'max(16px, env(safe-area-inset-right, 0px))',
           }}
@@ -316,9 +317,9 @@ export function HomePanel({ id, onResult }: Props) {
             </span>
           </Button>
         </Div>
-        {/* Отступ под таббар и safe area (iPhone и т.д.) */}
-        <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
       </Group>
+      {/* Отступ под таббар и safe area — вне островка с кнопкой */}
+      <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
 
       <ChoosingOverlay
         visible={choosingPhase !== 'idle'}
