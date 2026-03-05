@@ -117,6 +117,31 @@ export function HomePanel({ id, onResult }: Props) {
 
   const canChoose = participants.length >= 2 && choosingPhase === 'idle';
 
+  // VKWebAppGetUserInfo: добавить текущего пользователя (себя) в участники.
+  const addMe = useCallback(async () => {
+    setFriendsError(null);
+    const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (!isInVK) {
+      setFriendsError('Добавить себя можно только в приложении ВКонтакте.');
+      return;
+    }
+    try {
+      type UserInfo = { id?: number; first_name?: string; last_name?: string; photo_200?: string };
+      const data = await (bridge.send as (method: string) => Promise<UserInfo>)('VKWebAppGetUserInfo');
+      const u = data;
+      if (u?.id) {
+        addParticipant({
+          id: `vk-${u.id}`,
+          name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Я',
+          photo: u.photo_200,
+          isFromVk: true,
+        });
+      }
+    } catch {
+      setFriendsError('Не удалось добавить себя. Откройте приложение в ВКонтакте.');
+    }
+  }, [addParticipant]);
+
   // VKWebAppGetFriends: нативное окно выбора друзей, без запроса прав (по документации VK Bridge).
   const openFriendsPicker = useCallback(async () => {
     setFriendsError(null);
@@ -251,6 +276,9 @@ export function HomePanel({ id, onResult }: Props) {
             </IconButton>
           </div>
         </Div>
+        <CellButton onClick={addMe}>
+          Добавить себя
+        </CellButton>
         <CellButton onClick={() => { if (!friendsLoading) void openFriendsPicker(); }}>
           {friendsLoading ? 'Открываем список друзей...' : 'Добавить из друзей VK'}
         </CellButton>
