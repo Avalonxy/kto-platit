@@ -22,7 +22,7 @@
     "icon:gif": "node scripts/icon-animated-gif.cjs"
   },
   "dependencies": {
-    "@vercel/analytics": "^1.6.1",
+    "@vercel/speed-insights": "^1.3.1",
     "@vkontakte/icons": "1.213.0",
     "@vkontakte/vk-bridge": "2.15.11",
     "@vkontakte/vkui": "4.43.0",
