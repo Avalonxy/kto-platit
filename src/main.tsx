@@ -7,20 +7,22 @@ import '@vkontakte/vkui/dist/vkui.css';
 import './vk-iframe-layout.css';
 import App from './App';
 
-// Инициализация связи с платформой сразу — пока не вызвано, VK показывает экран запуска
-bridge.send('VKWebAppInit').catch(() => {});
-
-// Скрываем экран загрузки VK как можно раньше (до полного рендера React).
-// В клиенте на Android иначе возможна бесконечная загрузка при ошибках в дереве или контексте.
+// Скрываем экран загрузки VK. В клиенте (Android/ПК) важно: Ready шлём после Init или по таймауту.
 function sendReady() {
   try {
     (bridge.send as (method: string) => Promise<unknown>)('VKWebAppReady').catch(() => {});
   } catch {
-    // игнорируем, если bridge недоступен (например, открыто не в VK)
+    // bridge недоступен (открыто не в VK)
   }
 }
-sendReady();
-requestAnimationFrame(sendReady);
+
+// Сначала Init — в WebView на Android/ПК клиент может ждать именно такой порядок
+(bridge.send as (method: string) => Promise<unknown>)('VKWebAppInit')
+  .then(sendReady)
+  .catch(sendReady);
+
+// Запасной вариант: если Init зависнет (например в клиенте), через 2.5 с всё равно шлём Ready
+setTimeout(sendReady, 2500);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
