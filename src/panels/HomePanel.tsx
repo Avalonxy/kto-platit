@@ -201,8 +201,8 @@ export function HomePanel({ id, onResult }: Props) {
           const IconComponent = SCENARIO_ICONS[s.id];
           const selected = scenario.id === s.id;
           return (
+            <Div key={s.id} style={{ marginBottom: 4 }}>
             <SimpleCell
-              key={s.id}
               before={
                 <span
                   style={{
@@ -232,6 +232,7 @@ export function HomePanel({ id, onResult }: Props) {
             >
               {selected ? <strong>{s.title}</strong> : s.title}
             </SimpleCell>
+            </Div>
           );
         })}
         {scenario.id === 'custom' && (
