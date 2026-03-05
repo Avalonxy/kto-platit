@@ -72,6 +72,7 @@ export default function App() {
         </SplitCol>
       </SplitLayout>
       <SpeedInsights />
+      <Analytics />
     </AppRoot>
   );
 }
