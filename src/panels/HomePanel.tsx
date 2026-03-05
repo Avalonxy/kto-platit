@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import {
   Panel,
-  PanelHeader,
   Header,
   SimpleCell,
   Button,
@@ -176,18 +175,26 @@ export function HomePanel({ id, onResult }: Props) {
     }
   }, [addParticipant]);
 
+  const islandStyle = {
+    margin: '0 12px 12px',
+    marginLeft: 'max(12px, env(safe-area-inset-left, 0px))',
+    marginRight: 'max(12px, env(safe-area-inset-right, 0px))',
+    background: 'var(--vkui--color_background_content, #fff)',
+    borderRadius: 12,
+  } as const;
+
   return (
     <Panel id={id}>
-      <PanelHeader>Кто платит?</PanelHeader>
+      <Div style={{ ...islandStyle, padding: '14px 16px' }}>
+        <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--vkui--color_text_primary, #000)' }}>
+          Кто платит?
+        </span>
+      </Div>
 
       <Div
         style={{
+          ...islandStyle,
           padding: '12px 16px',
-          margin: '0 12px 12px',
-          marginLeft: 'max(12px, env(safe-area-inset-left, 0px))',
-          marginRight: 'max(12px, env(safe-area-inset-right, 0px))',
-          background: 'var(--vkui--color_background_secondary, #f7f7f8)',
-          borderRadius: 12,
           fontSize: 13,
           color: 'var(--vkui--color_text_secondary)',
           lineHeight: 1.4,
@@ -292,10 +299,9 @@ export function HomePanel({ id, onResult }: Props) {
       <Group>
         <Div
           style={{
-            paddingTop: 8,
-            paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))',
-            paddingLeft: 'env(safe-area-inset-left, 0px)',
-            paddingRight: 'env(safe-area-inset-right, 0px)',
+            padding: '10px 16px',
+            paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))',
+            paddingRight: 'max(16px, env(safe-area-inset-right, 0px))',
           }}
         >
           <Button
