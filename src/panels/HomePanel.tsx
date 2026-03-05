@@ -175,34 +175,26 @@ export function HomePanel({ id, onResult }: Props) {
     }
   }, [addParticipant]);
 
-  // Ширина как у Group (3-й островок): боковые отступы 16px
-  const islandStyle = {
-    margin: '0 16px 12px',
-    marginLeft: 'max(16px, env(safe-area-inset-left, 0px))',
-    marginRight: 'max(16px, env(safe-area-inset-right, 0px))',
-    background: 'var(--vkui--color_background_content, #fff)',
-    borderRadius: 12,
-  } as const;
-
   return (
     <Panel id={id}>
-      <Div style={{ ...islandStyle, padding: '14px 16px' }}>
-        <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--vkui--color_text_primary, #000)' }}>
-          Кто платит?
-        </span>
-      </Div>
-
-      <Div
-        style={{
-          ...islandStyle,
-          padding: '12px 16px',
-          fontSize: 13,
-          color: 'var(--vkui--color_text_secondary)',
-          lineHeight: 1.4,
-        }}
-      >
-        1️⃣ Добавьте участников (минимум 2) · 2️⃣ Выберите сценарий · 3️⃣ Нажмите кнопку внизу
-      </Div>
+      {/* Первые два островка в одном Group — та же ширина и стиль, что у «Сценарий» и «Участники» */}
+      <Group>
+        <Div style={{ padding: '14px 16px 8px' }}>
+          <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--vkui--color_text_primary, #000)' }}>
+            Кто платит?
+          </span>
+        </Div>
+        <Div
+          style={{
+            padding: '0 16px 14px',
+            fontSize: 13,
+            color: 'var(--vkui--color_text_secondary)',
+            lineHeight: 1.4,
+          }}
+        >
+          1️⃣ Добавьте участников (минимум 2) · 2️⃣ Выберите сценарий · 3️⃣ Нажмите кнопку внизу
+        </Div>
+      </Group>
 
       <Group header={<Header mode="secondary">Сценарий</Header>}>
         {DEFAULT_SCENARIOS.map((s) => {
