@@ -1,7 +1,11 @@
+import { useEffect, useState, useCallback } from 'react';
 import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '../ui';
-import { Icon24ShareOutline } from '@vkontakte/icons';
+import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import type { Participant, Scenario } from '../types';
+
+const FAVORITES_STORAGE_KEY = 'kto-platit_favorites';
+type FavoritesStatus = 'added' | 'dismissed' | null;
 
 type ResultData = {
   scenario: Scenario;
@@ -174,7 +178,53 @@ function buildShareMessage(
   );
 }
 
+function getFavoritesStatus(): FavoritesStatus {
+  try {
+    const v = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (v === 'added' || v === 'dismissed') return v;
+  } catch {}
+  return null;
+}
+
 export function ResultPanel({ id, result, onBack }: Props) {
+  const [favoritesStatus, setFavoritesStatus] = useState<FavoritesStatus>(getFavoritesStatus);
+
+  useEffect(() => {
+    if (result) {
+      try {
+        localStorage.setItem('kto-platit_has_drawn', '1');
+      } catch {}
+    }
+  }, [result]);
+
+  const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+  const showFavoritesPrompt = Boolean(result && isInVK && favoritesStatus !== 'added' && favoritesStatus !== 'dismissed');
+
+  const handleAddToFavorites = useCallback(() => {
+    (bridge.send as (method: string) => Promise<{ result?: boolean }>)('VKWebAppAddToFavorites')
+      .then((data) => {
+        if (data?.result) {
+          try {
+            localStorage.setItem(FAVORITES_STORAGE_KEY, 'added');
+          } catch {}
+          setFavoritesStatus('added');
+        }
+      })
+      .catch(() => {
+        try {
+          localStorage.setItem(FAVORITES_STORAGE_KEY, 'dismissed');
+        } catch {}
+        setFavoritesStatus('dismissed');
+      });
+  }, []);
+
+  const handleDismissFavorites = useCallback(() => {
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, 'dismissed');
+    } catch {}
+    setFavoritesStatus('dismissed');
+  }, []);
+
   if (!result) {
     return (
       <Panel id={id}>
@@ -183,6 +233,7 @@ export function ResultPanel({ id, result, onBack }: Props) {
         <Button size="l" stretched onClick={onBack}>
           Назад
         </Button>
+        <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
       </Panel>
     );
   }
@@ -204,14 +255,39 @@ export function ResultPanel({ id, result, onBack }: Props) {
       </PanelHeader>
 
       <Group header={<Header mode="secondary">{scenario.emoji} {scenario.title}</Header>}>
-        <Div style={{ textAlign: 'center' }}>
+        <Div
+          style={{
+            textAlign: 'center',
+            paddingLeft: 'env(safe-area-inset-left, 0px)',
+            paddingRight: 'env(safe-area-inset-right, 0px)',
+          }}
+        >
           <Avatar size={96} style={{ margin: '0 auto 12px' }}>
             {winner.name[0]}
           </Avatar>
-          <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              width: '100%',
+              minWidth: 0,
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+            }}
+          >
             <Header mode="primary">{winner.name}</Header>
           </div>
-          <p style={{ color: 'var(--vkui--color_text_secondary)', marginTop: 4, textAlign: 'center' }}>
+          <p
+            style={{
+              color: 'var(--vkui--color_text_secondary)',
+              marginTop: 4,
+              textAlign: 'center',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              paddingLeft: 8,
+              paddingRight: 8,
+            }}
+          >
             Участники: {participants.map((p) => p.name).join(', ')}
           </p>
         </Div>
@@ -231,6 +307,43 @@ export function ResultPanel({ id, result, onBack }: Props) {
           </Button>
         </Div>
       </Group>
+
+      {showFavoritesPrompt && (
+        <Group header={<Header mode="secondary">Понравилось?</Header>}>
+          <Div>
+            <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--vkui--color_text_secondary)' }}>
+              Добавьте приложение в избранное ВКонтакте — оно появится в меню «Сервисы → Избранное» и в левой колонке на десктопе.
+            </p>
+            <Button
+              size="l"
+              stretched
+              mode="secondary"
+              before={<Icon28StarsOutline />}
+              onClick={handleAddToFavorites}
+            >
+              Добавить в избранное
+            </Button>
+            <button
+              type="button"
+              onClick={handleDismissFavorites}
+              style={{
+                marginTop: 8,
+                padding: 0,
+                border: 0,
+                background: 'none',
+                fontSize: 13,
+                color: 'var(--vkui--color_text_secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Не показывать снова
+            </button>
+          </Div>
+        </Group>
+      )}
+
+      {/* Отступ под таббар и safe area */}
+      <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
     </Panel>
   );
 }

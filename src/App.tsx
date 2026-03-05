@@ -25,6 +25,14 @@ export default function App() {
     return () => cancelAnimationFrame(t);
   }, []);
 
+  // Хеш в URL для шаринга и глубоких ссылок (VKWebAppSetLocation)
+  useEffect(() => {
+    (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
+      'VKWebAppSetLocation',
+      { location: activePanel },
+    ).catch(() => {});
+  }, [activePanel]);
+
   const openResult = (scenario: Scenario, winner: Participant, participants: Participant[]) => {
     setResultData({ scenario, winner, participants });
     setActivePanel('result');

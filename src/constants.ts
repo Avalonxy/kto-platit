@@ -20,3 +20,12 @@ export const LOTTIE_CELEBRATION = '/lottie/celebration.json';
 export const CHOOSING_THINK_DURATION = 1800;
 /** Длительность показа победителя с анимацией перед переходом (мс) */
 export const CHOOSING_REVEAL_DURATION = 2200;
+
+/**
+ * Размер iframe мини-приложения VK (настройки в dev.vk.com).
+ * Работает только в обычном, не широкоформатном режиме.
+ */
+export const VK_IFRAME_MIN_WIDTH = 630;
+export const VK_IFRAME_MIN_HEIGHT = 600;
+export const VK_IFRAME_MAX_WIDTH = 1000;
+export const VK_IFRAME_MAX_HEIGHT = 4050;

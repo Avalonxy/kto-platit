@@ -34,7 +34,7 @@ export function HistoryPanel({ id, activePanel, onBack }: Props) {
 
       <Group header={items.length ? 'Последние выборы' : undefined}>
         {items.length === 0 ? (
-          <Div style={{ color: 'var(--vkui--color_text_secondary)', textAlign: 'center' }}>
+          <Div style={{ color: 'var(--vkui--color_text_secondary)', textAlign: 'center', paddingBottom: 24 }}>
             Пока пусто. Сделайте первый выбор на вкладке «Жеребьёвка».
           </Div>
         ) : (
@@ -45,11 +45,15 @@ export function HistoryPanel({ id, activePanel, onBack }: Props) {
               subtitle={`${item.participantNames.join(', ')} · ${formatDate(item.date)}`}
             >
               <span style={{ marginRight: 6 }}>{item.scenarioEmoji}</span>
-              {item.scenarioTitle} → {item.winner.name}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', minWidth: 0 }}>
+                {item.scenarioTitle} → {item.winner.name}
+              </span>
             </SimpleCell>
           ))
         )}
       </Group>
+      {/* Отступ под таббар и safe area */}
+      <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
     </Panel>
   );
 }

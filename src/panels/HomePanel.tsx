@@ -158,10 +158,11 @@ export function HomePanel({ id, onResult }: Props) {
       <Div
         style={{
           padding: '12px 16px',
-          marginBottom: 4,
+          margin: '0 12px 12px',
+          marginLeft: 'max(12px, env(safe-area-inset-left, 0px))',
+          marginRight: 'max(12px, env(safe-area-inset-right, 0px))',
           background: 'var(--vkui--color_background_secondary, #f7f7f8)',
           borderRadius: 12,
-          margin: '0 12px 12px',
           fontSize: 13,
           color: 'var(--vkui--color_text_secondary)',
           lineHeight: 1.4,
@@ -264,7 +265,9 @@ export function HomePanel({ id, onResult }: Props) {
         <Div
           style={{
             paddingTop: 8,
-            paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
+            paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))',
+            paddingLeft: 'env(safe-area-inset-left, 0px)',
+            paddingRight: 'env(safe-area-inset-right, 0px)',
           }}
         >
           <Button
@@ -274,9 +277,13 @@ export function HomePanel({ id, onResult }: Props) {
             loading={choosingPhase === 'thinking'}
             onClick={chooseRandom}
           >
-            {choosingPhase !== 'idle' ? 'Запускаем...' : `Запустить: ${displayTitle}`}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+              {choosingPhase !== 'idle' ? 'Запускаем...' : `Запустить: ${displayTitle}`}
+            </span>
           </Button>
         </Div>
+        {/* Отступ под таббар и safe area (iPhone и т.д.) */}
+        <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
       </Group>
 
       <ChoosingOverlay

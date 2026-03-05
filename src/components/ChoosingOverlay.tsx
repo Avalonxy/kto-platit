@@ -39,6 +39,8 @@ export function ChoosingOverlay({ visible, phase, winner, onRevealEnd }: Props) 
 
   const isReveal = phase === 'reveal';
 
+  const revealSize = 'min(200px, 55vw)';
+  const thinkSize = 'min(180px, 50vw)';
   return (
     <div
       style={{
@@ -51,26 +53,34 @@ export function ChoosingOverlay({ visible, phase, winner, onRevealEnd }: Props) 
         alignItems: 'center',
         justifyContent: 'center',
         padding: 24,
+        paddingTop: 'max(24px, env(safe-area-inset-top, 0px))',
+        paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))',
+        paddingLeft: 'max(24px, env(safe-area-inset-left, 0px))',
+        paddingRight: 'max(24px, env(safe-area-inset-right, 0px))',
         boxSizing: 'border-box',
       }}
     >
       {isReveal ? (
         <>
-          <div style={{ width: 200, height: 200, flexShrink: 0 }}>
+          <div style={{ width: revealSize, height: revealSize, flexShrink: 0 }}>
             {celebrationData ? (
               <Lottie animationData={celebrationData} loop style={{ width: '100%', height: '100%' }} />
             ) : (
-              <div style={{ fontSize: 80, textAlign: 'center' }}>🎉</div>
+              <div style={{ fontSize: 'min(80px, 20vw)', textAlign: 'center' }}>🎉</div>
             )}
           </div>
           {winner && (
             <p
               style={{
                 marginTop: 16,
-                fontSize: 24,
+                fontSize: 'clamp(18px, 5vw, 24px)',
                 fontWeight: 600,
                 textAlign: 'center',
                 color: 'var(--vkui--color_text_primary, #000)',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                paddingLeft: 16,
+                paddingRight: 16,
               }}
             >
               {winner.name}
@@ -79,7 +89,7 @@ export function ChoosingOverlay({ visible, phase, winner, onRevealEnd }: Props) 
         </>
       ) : (
         <>
-          <div style={{ width: 180, height: 180, flexShrink: 0 }}>
+          <div style={{ width: thinkSize, height: thinkSize, flexShrink: 0 }}>
             {thinkingData ? (
               <Lottie animationData={thinkingData} loop style={{ width: '100%', height: '100%' }} />
             ) : (
@@ -97,7 +107,7 @@ export function ChoosingOverlay({ visible, phase, winner, onRevealEnd }: Props) 
               </div>
             )}
           </div>
-          <p style={{ marginTop: 16, fontSize: 18, color: 'var(--vkui--color_text_secondary)' }}>
+          <p style={{ marginTop: 16, fontSize: 'clamp(16px, 4vw, 18px)', color: 'var(--vkui--color_text_secondary)' }}>
             Выбираем...
           </p>
         </>

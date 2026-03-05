@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import bridge from '@vkontakte/vk-bridge';
 import { AdaptivityProvider, ConfigProvider } from './ui';
 import '@vkontakte/vkui/dist/vkui.css';
+import './vk-iframe-layout.css';
 import App from './App';
 
 // Инициализация связи с платформой сразу — пока не вызвано, VK показывает экран запуска
