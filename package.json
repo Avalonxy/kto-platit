@@ -16,10 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "icons:png": "node scripts/icons-to-png.cjs",
-    "screenshots:vk": "node scripts/screenshots-for-vk.cjs",
-    "icon:gif": "node scripts/icon-animated-gif.cjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
