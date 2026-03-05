@@ -138,6 +138,16 @@ export function HomePanel({ id, onResult }: Props) {
       return;
     }
     try {
+      // Запрашиваем право доступа к друзьям (обязательно для friends.get по документации VK Bridge)
+      type LaunchParams = { app_id?: number; vk_app_id?: number };
+      const launchParams = await (bridge.send as (method: string) => Promise<LaunchParams>)('VKWebAppGetLaunchParams').catch((): LaunchParams => ({}));
+      const appId = launchParams?.app_id ?? launchParams?.vk_app_id;
+      if (appId) {
+        await (bridge.send as (method: string, params: { app_id: number; scope: string }) => Promise<unknown>)(
+          'VKWebAppGetAuthToken',
+          { app_id: appId, scope: 'friends' },
+        ).catch(() => {});
+      }
       const data = await (bridge.send as (method: string, params?: unknown) => Promise<{ response?: { items?: Array<{ id: number; first_name?: string; last_name?: string; photo_50?: string }> }; error?: unknown }>)(
         'VKWebAppCallAPIMethod',
         { method: 'friends.get', params: { count: 100, fields: 'photo_50', order: 'name', v: '5.199' } },
