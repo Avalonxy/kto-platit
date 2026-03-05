@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/ErrorBoundary.tsx","./src/constants.ts","./src/main.tsx","./src/types.ts","./src/ui.tsx","./src/vite-env.d.ts","./src/components/ChoosingOverlay.tsx","./src/panels/HistoryPanel.tsx","./src/panels/HomePanel.tsx","./src/panels/ResultPanel.tsx","./src/utils/history.ts","./src/utils/weightedChoice.ts","./vite.config.ts"],"version":"5.7.2"}

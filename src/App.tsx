@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import bridge from '@vkontakte/vk-bridge';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from './ui';
 import { Icon28UsersOutline, Icon28StoryOutline } from '@vkontakte/icons';
 import { HomePanel } from './panels/HomePanel';
@@ -69,6 +70,7 @@ export default function App() {
           </Tabbar>
         </SplitCol>
       </SplitLayout>
+      <SpeedInsights />
     </AppRoot>
   );
 }
