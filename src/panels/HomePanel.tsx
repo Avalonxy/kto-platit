@@ -11,11 +11,6 @@ import {
   Input,
   IconButton,
   CellButton,
-  ModalRoot,
-  ModalPage,
-  ModalPageHeader,
-  Spinner,
-  Checkbox,
 } from '../ui';
 import {
   Icon28AddOutline,
@@ -57,11 +52,8 @@ export function HomePanel({ id, onResult }: Props) {
   const [customTitle, setCustomTitle] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [manualName, setManualName] = useState('');
-  const [friendsModalOpen, setFriendsModalOpen] = useState(false);
-  const [friendsList, setFriendsList] = useState<Participant[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
-  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
   const [choosingPhase, setChoosingPhase] = useState<ChoosingPhase>('idle');
   const [chosenWinner, setChosenWinner] = useState<Participant | null>(null);
   const [chosenResult, setChosenResult] = useState<{
@@ -125,67 +117,39 @@ export function HomePanel({ id, onResult }: Props) {
 
   const canChoose = participants.length >= 2 && choosingPhase === 'idle';
 
-  const openFriendsModal = useCallback(async () => {
-    setFriendsModalOpen(true);
-    setFriendsLoading(true);
+  // VKWebAppGetFriends: нативное окно выбора друзей, без запроса прав (по документации VK Bridge).
+  const openFriendsPicker = useCallback(async () => {
     setFriendsError(null);
-    setFriendsList([]);
-    setSelectedFriendIds(new Set());
+    setFriendsLoading(true);
     const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
     if (!isInVK) {
-      setFriendsError('Друзья доступны только в приложении ВКонтакте. Откройте мини-приложение в VK (не в браузере) или добавьте участников вручную.');
+      setFriendsError('Друзья доступны только в приложении ВКонтакте.');
       setFriendsLoading(false);
       return;
     }
     try {
-      // Запрашиваем право доступа к друзьям (обязательно для friends.get по документации VK Bridge)
-      type LaunchParams = { app_id?: number; vk_app_id?: number };
-      const launchParams = await (bridge.send as (method: string) => Promise<LaunchParams>)('VKWebAppGetLaunchParams').catch((): LaunchParams => ({}));
-      const appId = launchParams?.app_id ?? launchParams?.vk_app_id;
-      if (appId) {
-        await (bridge.send as (method: string, params: { app_id: number; scope: string }) => Promise<unknown>)(
-          'VKWebAppGetAuthToken',
-          { app_id: appId, scope: 'friends' },
-        ).catch(() => {});
-      }
-      const data = await (bridge.send as (method: string, params?: unknown) => Promise<{ response?: { items?: Array<{ id: number; first_name?: string; last_name?: string; photo_50?: string }> }; error?: unknown }>)(
-        'VKWebAppCallAPIMethod',
-        { method: 'friends.get', params: { count: 100, fields: 'photo_50', order: 'name', v: '5.199' } },
+      type GetFriendsResult = { users?: Array<{ id: number; first_name?: string; last_name?: string; photo_200?: string }> };
+      const data = await (bridge.send as (method: string, params: { multi: boolean }) => Promise<GetFriendsResult>)(
+        'VKWebAppGetFriends',
+        { multi: true },
       );
-      if (data?.error) {
-        setFriendsError('Не удалось загрузить друзей. Проверьте, что у приложения включён доступ к друзьям в настройках VK, или добавьте участников вручную.');
-        return;
-      }
-      const items = Array.isArray(data?.response?.items) ? data.response.items : [];
-      const list: Participant[] = items.map((u: { id: number; first_name?: string; last_name?: string; photo_50?: string }) => ({
+      const users = Array.isArray(data?.users) ? data.users : [];
+      const list: Participant[] = users.map((u) => ({
         id: `vk-${u.id}`,
         name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Без имени',
-        photo: u.photo_50,
+        photo: u.photo_200,
         isFromVk: true,
       }));
-      setFriendsList(list);
-    } catch {
-      setFriendsError('Не удалось загрузить друзей. Откройте приложение в ВКонтакте или добавьте участников вручную.');
+      list.forEach(addParticipant);
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'error_type' in err && (err as { error_type?: string }).error_type;
+      if (msg !== 'User denied') {
+        setFriendsError('Не удалось добавить друзей. Попробуйте ещё раз или добавьте участников вручную.');
+      }
     } finally {
       setFriendsLoading(false);
     }
-  }, []);
-
-  const toggleFriend = useCallback((id: string) => {
-    setSelectedFriendIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const addSelectedFriends = useCallback(() => {
-    const toAdd = friendsList.filter((p) => selectedFriendIds.has(p.id));
-    toAdd.forEach(addParticipant);
-    setFriendsModalOpen(false);
-    setSelectedFriendIds(new Set());
-  }, [friendsList, selectedFriendIds, addParticipant]);
+  }, [addParticipant]);
 
   return (
     <Panel id={id}>
@@ -286,7 +250,14 @@ export function HomePanel({ id, onResult }: Props) {
             </IconButton>
           </div>
         </Div>
-        <CellButton onClick={openFriendsModal}>Добавить из друзей VK</CellButton>
+        <CellButton onClick={() => { if (!friendsLoading) void openFriendsPicker(); }}>
+          {friendsLoading ? 'Открываем список друзей...' : 'Добавить из друзей VK'}
+        </CellButton>
+        {friendsError && (
+          <Div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--vkui--color_text_secondary)' }}>
+            {friendsError}
+          </Div>
+        )}
       </Group>
 
       <Group>
@@ -315,47 +286,6 @@ export function HomePanel({ id, onResult }: Props) {
         onRevealEnd={handleRevealEnd}
       />
 
-      {friendsModalOpen && (
-        <ModalRoot activeModal="friends" onClose={() => setFriendsModalOpen(false)}>
-          <ModalPage
-            id="friends"
-            onClose={() => setFriendsModalOpen(false)}
-            settlingHeight={100}
-          >
-            <ModalPageHeader>Друзья VK</ModalPageHeader>
-            {friendsLoading ? (
-              <Div><Spinner size="large" /></Div>
-            ) : friendsError ? (
-              <Div>{friendsError}</Div>
-            ) : (
-              <>
-                <Group>
-                  {friendsList.map((p) => (
-                    <SimpleCell
-                      key={p.id}
-                      before={p.photo ? <Avatar src={p.photo} size={40} /> : <Avatar size={40}>{p.name[0]}</Avatar>}
-                      after={
-                        <Checkbox
-                          checked={selectedFriendIds.has(p.id)}
-                          onChange={() => toggleFriend(p.id)}
-                        />
-                      }
-                      onClick={() => toggleFriend(p.id)}
-                    >
-                      {p.name}
-                    </SimpleCell>
-                  ))}
-                </Group>
-                <Div style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
-                  <Button size="l" stretched onClick={addSelectedFriends}>
-                    Добавить выбранных ({selectedFriendIds.size})
-                  </Button>
-                </Div>
-              </>
-            )}
-          </ModalPage>
-        </ModalRoot>
-      )}
     </Panel>
   );
 }
