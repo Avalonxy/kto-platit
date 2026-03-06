@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Panel,
   Header,
@@ -66,6 +66,33 @@ export function HomePanel({ id, onResult }: Props) {
   const addParticipant = useCallback((p: Participant) => {
     setParticipants((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
   }, []);
+
+  // Кэш пользователя из VKWebAppStorage — при повторном заходе «себя» можно подставить сразу
+  useEffect(() => {
+    const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (!isInVK) return;
+    // VKWebAppStorageGet: keys — массив названий, ответ: { keys: [ { key, value } ] } (dev.vk.com/ru/bridge/VKWebAppStorageGet)
+    (bridge.send as (method: string, params: { keys: string[] }) => Promise<{ keys?: Array<{ key: string; value: string }> }>)(
+      'VKWebAppStorageGet',
+      { keys: ['kto_platit_user'] },
+    )
+      .then((res) => {
+        const item = res?.keys?.find((k) => k.key === 'kto_platit_user')?.value;
+        if (!item) return;
+        try {
+          const u = JSON.parse(item) as { id?: number; first_name?: string; last_name?: string; photo_200?: string };
+          if (u?.id) {
+            addParticipant({
+              id: `vk-${u.id}`,
+              name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Я',
+              photo: u.photo_200,
+              isFromVk: true,
+            });
+          }
+        } catch {}
+      })
+      .catch(() => {});
+  }, [addParticipant]);
 
   const removeParticipant = useCallback((participantId: string) => {
     setParticipants((prev) => prev.filter((p) => p.id !== participantId));
@@ -135,6 +162,12 @@ export function HomePanel({ id, onResult }: Props) {
           photo: u.photo_200,
           isFromVk: true,
         });
+        try {
+          (bridge.send as (method: string, params: { key: string; value: string }) => Promise<unknown>)(
+            'VKWebAppStorageSet',
+            { key: 'kto_platit_user', value: JSON.stringify(u) },
+          ).catch(() => {});
+        } catch {}
       }
     } catch {
       setFriendsError('Не удалось добавить себя. Откройте приложение в ВКонтакте.');
@@ -166,8 +199,11 @@ export function HomePanel({ id, onResult }: Props) {
       }));
       list.forEach(addParticipant);
     } catch (err: unknown) {
-      const msg = err && typeof err === 'object' && 'error_type' in err && (err as { error_type?: string }).error_type;
-      if (msg !== 'User denied') {
+      const errObj = err && typeof err === 'object' ? (err as { error_type?: string }) : null;
+      const errorType = errObj?.error_type;
+      if (errorType === 'User denied' || errorType === 'User cancelled') {
+        setFriendsError('Доступ к друзьям отменён. Добавьте участников вручную или нажмите снова и разрешите доступ.');
+      } else {
         setFriendsError('Не удалось добавить друзей. Попробуйте ещё раз или добавьте участников вручную.');
       }
     } finally {

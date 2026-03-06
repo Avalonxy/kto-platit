@@ -19,6 +19,7 @@ function getWinCountsByParticipantId(): Map<string, number> {
 
 /**
  * Выбирает одного участника с учётом весов: кто уже выигрывал — получает PRIOR_WINNER_WEIGHT (30% шанса).
+ * Честный случайный выбор для клиента (Math.random + веса по истории), бэкенд не требуется.
  */
 export function chooseWeightedRandom(participants: Participant[]): Participant {
   if (participants.length === 0) throw new Error('participants is empty');

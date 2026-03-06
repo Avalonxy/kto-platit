@@ -201,21 +201,25 @@ export function ResultPanel({ id, result, onBack }: Props) {
   const showFavoritesPrompt = Boolean(result && isInVK && favoritesStatus !== 'added' && favoritesStatus !== 'dismissed');
 
   const handleAddToFavorites = useCallback(() => {
-    (bridge.send as (method: string) => Promise<{ result?: boolean }>)('VKWebAppAddToFavorites')
-      .then((data) => {
-        if (data?.result) {
+    try {
+      (bridge.send as (method: string) => Promise<{ result?: boolean }>)('VKWebAppAddToFavorites')
+        .then((data) => {
+          if (data?.result) {
+            try {
+              localStorage.setItem(FAVORITES_STORAGE_KEY, 'added');
+            } catch {}
+            setFavoritesStatus('added');
+          }
+        })
+        .catch(() => {
           try {
-            localStorage.setItem(FAVORITES_STORAGE_KEY, 'added');
+            localStorage.setItem(FAVORITES_STORAGE_KEY, 'dismissed');
           } catch {}
-          setFavoritesStatus('added');
-        }
-      })
-      .catch(() => {
-        try {
-          localStorage.setItem(FAVORITES_STORAGE_KEY, 'dismissed');
-        } catch {}
-        setFavoritesStatus('dismissed');
-      });
+          setFavoritesStatus('dismissed');
+        });
+    } catch {
+      setFavoritesStatus('dismissed');
+    }
   }, []);
 
   const handleDismissFavorites = useCallback(() => {
