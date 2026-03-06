@@ -241,11 +241,18 @@ export function ResultPanel({ id, result, onBack }: Props) {
   const { scenario, winner, participants } = result;
   const shareMessage = buildShareMessage(scenario, winner, participants);
 
-  const handleShare = () => {
-    bridge.send('VKWebAppShowWallPostBox', {
-      message: shareMessage,
-      attachments: window.location.href,
-    }).catch(() => {});
+  const handleShare = async () => {
+    // Шаринг идёт через VK Bridge (bridge.send), не через VKUI. В VKUI только кнопка (Button) ниже.
+    // VKWebAppShare принимает только link; текст копируем в буфер — пользователь вставит в диалоге.
+    try {
+      await navigator.clipboard.writeText(shareMessage);
+      (bridge.send as (method: string, params?: object) => Promise<unknown>)('VKWebAppShowSnackbar', {
+        text: 'Текст скопирован — вставьте в сообщение',
+      }).catch(() => {});
+    } catch {
+      // Буфер недоступен — просто откроем шаринг ссылки
+    }
+    bridge.send('VKWebAppShare', { link: window.location.href }).catch(() => {});
   };
 
   return (
@@ -291,14 +298,40 @@ export function ResultPanel({ id, result, onBack }: Props) {
             Участники: {participants.map((p) => p.name).join(', ')}
           </p>
         </Div>
-        <Div>
+
+        <Div
+          style={{
+            marginTop: 16,
+            padding: '14px 16px',
+            borderRadius: 12,
+            background: 'var(--vkui--color_background_secondary)',
+            paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))',
+            paddingRight: 'max(16px, env(safe-area-inset-right, 0px))',
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 15,
+              lineHeight: 1.45,
+              color: 'var(--vkui--color_text_primary)',
+              whiteSpace: 'pre-line',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+            }}
+          >
+            {shareMessage}
+          </p>
+        </Div>
+
+        <Div style={{ marginTop: 20 }}>
           <Button
             size="l"
             stretched
             before={<Icon24ShareOutline />}
             onClick={handleShare}
           >
-            Поделиться в VK
+            Отправить другу
           </Button>
         </Div>
         <Div>

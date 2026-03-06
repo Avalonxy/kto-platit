@@ -10,8 +10,9 @@ docs/
 
 # Служебная документация и скрипты (не в репозиторий)
 scripts/
-README-dev.md
-README-vk-setup.md
-ИСПРАВИТЬ-ДАТЫ.md
-fix-commit-dates.bat
-setup-git-history.bat
+MODERATION-REPLY.md
+_local-dev.txt
+_local-vk.txt
+_local-dates.txt
+_local-dates.bat
+_local-git.bat
