@@ -299,30 +299,65 @@ export function ResultPanel({ id, result, onBack }: Props) {
           </p>
         </Div>
 
-        <Div
-          style={{
-            marginTop: 16,
-            padding: '14px 16px',
-            borderRadius: 12,
-            background: 'var(--vkui--color_background_secondary)',
-            paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))',
-            paddingRight: 'max(16px, env(safe-area-inset-right, 0px))',
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: 15,
-              lineHeight: 1.45,
-              color: 'var(--vkui--color_text_primary)',
-              whiteSpace: 'pre-line',
-              wordBreak: 'break-word',
-              overflowWrap: 'break-word',
-            }}
-          >
-            {shareMessage}
-          </p>
-        </Div>
+        {(() => {
+          const ctaDelim = '\n\n———\n\n';
+          const [mainText, ctaBlock] = shareMessage.includes(ctaDelim)
+            ? shareMessage.split(ctaDelim)
+            : [shareMessage, ''];
+          const paragraphs = mainText.split(/\n\n+/).filter(Boolean);
+          return (
+            <Div
+              style={{
+                marginTop: 16,
+                padding: '16px 18px',
+                borderRadius: 16,
+                background: 'var(--vkui--color_background_secondary)',
+                paddingLeft: 'max(18px, env(safe-area-inset-left, 0px))',
+                paddingRight: 'max(18px, env(safe-area-inset-right, 0px))',
+              }}
+            >
+              {paragraphs.map((para, i) => (
+                <p
+                  key={i}
+                  style={{
+                    margin: i === 0 ? 0 : '12px 0 0',
+                    fontSize: i === 0 ? 16 : 15,
+                    fontWeight: i === 0 ? 600 : 400,
+                    lineHeight: 1.5,
+                    color: 'var(--vkui--color_text_primary)',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                  }}
+                >
+                  {para}
+                </p>
+              ))}
+              {ctaBlock ? (
+                <>
+                  <div
+                    style={{
+                      marginTop: 16,
+                      paddingTop: 14,
+                      borderTop: '1px solid var(--vkui--color_separator_secondary)',
+                    }}
+                  />
+                  <p
+                    style={{
+                      margin: '12px 0 0',
+                      fontSize: 14,
+                      lineHeight: 1.45,
+                      color: 'var(--vkui--color_text_secondary)',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                    }}
+                  >
+                    {ctaBlock.trim()}
+                  </p>
+                </>
+              ) : null}
+            </Div>
+          );
+        })()}
 
         <Div style={{ marginTop: 20 }}>
           <Button
