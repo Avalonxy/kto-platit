@@ -15,6 +15,9 @@ export const MAX_HISTORY = 20;
 
 export const LOTTIE_THINKING = '/lottie/thinking.json';
 export const LOTTIE_CELEBRATION = '/lottie/celebration.json';
+export const LOTTIE_CONFETTI = '/lottie/Confetti.json';
+/** Длительность конфетти на экране результата (мc) */
+export const CONFETTI_DURATION_MS = 10_000;
 
 /** Длительность фазы "думает" (мс) */
 export const CHOOSING_THINK_DURATION = 1800;

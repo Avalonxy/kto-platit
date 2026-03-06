@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import Lottie, { type LottieRefCurrentProps } from 'lottie-react';
 import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '../ui';
 import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
+import { LOTTIE_CONFETTI, CONFETTI_DURATION_MS } from '../constants';
 import type { Participant, Scenario } from '../types';
 
 const FAVORITES_STORAGE_KEY = 'kto-platit_favorites';
@@ -188,14 +190,38 @@ function getFavoritesStatus(): FavoritesStatus {
 
 export function ResultPanel({ id, result, onBack }: Props) {
   const [favoritesStatus, setFavoritesStatus] = useState<FavoritesStatus>(getFavoritesStatus);
+  const [confettiData, setConfettiData] = useState<object | null>(null);
+  const [confettiVisible, setConfettiVisible] = useState(true);
+  const confettiLottieRef = useRef<LottieRefCurrentProps | null>(null);
 
   useEffect(() => {
     if (result) {
       try {
         localStorage.setItem('kto-platit_has_drawn', '1');
       } catch {}
+      setConfettiVisible(true);
     }
   }, [result]);
+
+  useEffect(() => {
+    if (!result) return;
+    let cancelled = false;
+    fetch(LOTTIE_CONFETTI)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled && data) setConfettiData(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [result]);
+
+  // Через 10 с останавливаем конфетти и скрываем (анимация ~3–4 с, успеет несколько раз проиграть)
+  useEffect(() => {
+    if (!confettiData) return;
+    const t = setTimeout(() => {
+      confettiLottieRef.current?.stop();
+      setConfettiVisible(false);
+    }, CONFETTI_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [confettiData]);
 
   const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
   const showFavoritesPrompt = Boolean(result && isInVK && favoritesStatus !== 'added' && favoritesStatus !== 'dismissed');
@@ -273,9 +299,40 @@ export function ResultPanel({ id, result, onBack }: Props) {
             paddingRight: 'env(safe-area-inset-right, 0px)',
           }}
         >
-          <Avatar size={96} style={{ margin: '0 auto 12px' }}>
-            {winner.name[0]}
-          </Avatar>
+          <div
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 160,
+              height: 160,
+              margin: '0 auto 12px',
+            }}
+          >
+            <Avatar size={96} src={winner.photo}>
+              {winner.name[0]}
+            </Avatar>
+            {confettiData && confettiVisible && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  pointerEvents: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Lottie
+                  lottieRef={confettiLottieRef}
+                  animationData={confettiData}
+                  loop={true}
+                  style={{ width: 160, height: 160 }}
+                />
+              </div>
+            )}
+          </div>
           <div
             style={{
               display: 'flex',
