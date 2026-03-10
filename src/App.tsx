@@ -7,6 +7,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { HomePanel } from './panels/HomePanel';
 import { ResultPanel } from './panels/ResultPanel';
 import { HistoryPanel } from './panels/HistoryPanel';
+import { saveLastResult, getLastResult } from './utils/lastResult';
 import type { HistoryItem as HistoryItemType, Participant, Scenario } from './types';
 
 export type ActivePanel = 'home' | 'result' | 'history';
@@ -35,8 +36,35 @@ export default function App() {
     ).catch(() => {});
   }, [activePanel]);
 
+  // Открытие по ссылке с #result: читаем хеш при загрузке и подписываемся на VKWebAppChangeFragment
+  useEffect(() => {
+    const applyFragment = (location: string) => {
+      if (location !== 'result') return;
+      const last = getLastResult();
+      if (last) {
+        setResultData(last);
+        setActivePanel('result');
+      }
+    };
+
+    const hash = window.location.hash.slice(1).toLowerCase();
+    if (hash === 'result') applyFragment('result');
+
+    const handler = (event: unknown) => {
+      const e = event as { detail?: { type?: string; data?: { location?: string } } };
+      const detail = e?.detail;
+      if (detail?.type === 'VKWebAppChangeFragment' && detail?.data && 'location' in detail.data) {
+        applyFragment(String(detail.data.location));
+      }
+    };
+    bridge.subscribe(handler);
+    return () => bridge.unsubscribe(handler);
+  }, []);
+
   const openResult = (scenario: Scenario, winner: Participant, participants: Participant[]) => {
-    setResultData({ scenario, winner, participants });
+    const data = { scenario, winner, participants };
+    setResultData(data);
+    saveLastResult(data);
     setActivePanel('result');
   };
 

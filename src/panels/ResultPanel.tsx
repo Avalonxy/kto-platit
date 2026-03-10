@@ -3,7 +3,7 @@ import Lottie, { type LottieRefCurrentProps } from 'lottie-react';
 import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '../ui';
 import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
-import { LOTTIE_CONFETTI, CONFETTI_DURATION_MS } from '../constants';
+import { LOTTIE_CONFETTI, CONFETTI_DURATION_MS, VK_APP_LINK } from '../constants';
 import type { Participant, Scenario } from '../types';
 
 const FAVORITES_STORAGE_KEY = 'kto-platit_favorites';
@@ -282,7 +282,7 @@ export function ResultPanel({ id, result, onBack }: Props) {
     } catch {
       // Буфер недоступен — просто откроем шаринг ссылки
     }
-    bridge.send('VKWebAppShare', { link: window.location.href }).catch(() => {});
+    bridge.send('VKWebAppShare', { link: `${VK_APP_LINK}#result` }).catch(() => {});
   };
 
   return (

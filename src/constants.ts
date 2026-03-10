@@ -11,6 +11,8 @@ export const DEFAULT_SCENARIOS: Scenario[] = [
 ];
 
 export const STORAGE_HISTORY_KEY = 'kto-platit-history';
+/** Ключ для сохранения последнего результата (открытие по ссылке #result). */
+export const STORAGE_LAST_RESULT_KEY = 'kto-platit_last_result';
 export const MAX_HISTORY = 20;
 
 export const LOTTIE_THINKING = '/lottie/thinking.json';
@@ -23,6 +25,11 @@ export const CONFETTI_DURATION_MS = 10_000;
 export const CHOOSING_THINK_DURATION = 1800;
 /** Длительность показа победителя с анимацией перед переходом (мс) */
 export const CHOOSING_REVEAL_DURATION = 2200;
+
+/** ID приложения ВК */
+export const VK_APP_ID = 54470366;
+/** Ссылка на приложение в VK — для шеринга (не уводим пользователей на внешний сайт). */
+export const VK_APP_LINK = `https://vk.com/app${VK_APP_ID}`;
 
 /**
  * Размер iframe мини-приложения VK (настройки в dev.vk.com).
