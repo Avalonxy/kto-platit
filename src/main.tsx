@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import bridge from '@vkontakte/vk-bridge';
-import { AdaptivityProvider, ConfigProvider } from './ui';
 import { ErrorBoundary } from './ErrorBoundary';
+import { VKConfigProviderWrapper } from './VKConfigProvider';
 import '@vkontakte/vkui/dist/vkui.css';
 import './vk-iframe-layout.css';
 import App from './App';
@@ -27,11 +27,9 @@ setTimeout(sendReady, 2500);
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <ConfigProvider>
-        <AdaptivityProvider>
-          <App />
-        </AdaptivityProvider>
-      </ConfigProvider>
+      <VKConfigProviderWrapper>
+        <App />
+      </VKConfigProviderWrapper>
     </ErrorBoundary>
   </React.StrictMode>
 );

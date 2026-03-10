@@ -43,5 +43,6 @@ export const ModalPageHeader: FC<{ children?: ReactNode }> = VK.ModalPageHeader 
 export const Spinner: FC<{ size?: string }> = VK.Spinner as FC<any>;
 export const Checkbox: FC<{ checked?: boolean; onChange?: () => void }> = VK.Checkbox as FC<any>;
 
-export const ConfigProvider: FC<OptionalChildren> = VK.ConfigProvider as FC<OptionalChildren>;
+export const ConfigProvider: FC<OptionalChildren & { appearance?: 'light' | 'dark' }> =
+  VK.ConfigProvider as FC<OptionalChildren & { appearance?: 'light' | 'dark' }>;
 export const AdaptivityProvider: FC<OptionalChildren> = VK.AdaptivityProvider as FC<OptionalChildren>;
