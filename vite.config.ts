@@ -7,5 +7,21 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'vendor';
+          }
+          if (id.includes('node_modules/@vkontakte')) {
+            return 'vk';
+          }
+          if (id.includes('node_modules/lottie')) {
+            return 'lottie';
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
   },
 });
