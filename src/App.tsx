@@ -13,6 +13,7 @@ import {
   getPayloadFromFragment,
   decodeSharePayload,
   looksLikeServerId,
+  encodeSharePayload,
 } from './utils/shareResult';
 import { createResult, fetchResultById } from './api/results';
 import { updateLastHistoryItemServerId } from './utils/history';
@@ -58,13 +59,26 @@ export default function App() {
     return () => clearTimeout(id);
   }, []);
 
-  // Хеш в URL для шаринга и глубоких ссылок (VKWebAppSetLocation)
+  // Хеш в URL: при просмотре результата — полный фрагмент #result-<id> или #result-<base64>,
+  // чтобы при шаринге страницы друг получал ссылку на этот результат, а не на главную (#result).
+  // В браузере (не в VK) обновляем hash в адресной строке — так можно проверить шеринг без каталога.
   useEffect(() => {
-    (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
-      'VKWebAppSetLocation',
-      { location: activePanel },
-    ).catch(() => {});
-  }, [activePanel]);
+    const location =
+      activePanel === 'result' && resultData
+        ? resultData.serverId
+          ? `result-${resultData.serverId}`
+          : `result-${encodeSharePayload(resultData.scenario, resultData.winner, resultData.participants)}`
+        : activePanel;
+    const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (inVK) {
+      (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
+        'VKWebAppSetLocation',
+        { location },
+      ).catch(() => {});
+    } else if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#${location}`);
+    }
+  }, [activePanel, resultData]);
 
   // Открытие по ссылке: #result-<id> (сервер) или #result-<base64> (legacy); #result — последний результат (fallback)
   useEffect(() => {
@@ -72,6 +86,7 @@ export default function App() {
       const raw = fragment.trim();
       if (isShareResultFragment(raw)) {
         const payload = getPayloadFromFragment(raw);
+        let opened = false;
         if (payload) {
           if (looksLikeServerId(payload)) {
             const data = await fetchResultById(payload);
@@ -90,9 +105,17 @@ export default function App() {
           if (decoded) {
             setResultData(decoded);
             setActivePanel('result');
+            opened = true;
             return;
           }
         }
+        if (!opened) {
+          (bridge.send as (method: string, params: object) => Promise<unknown>)(
+            'VKWebAppShowSnackbar',
+            { text: 'Не удалось открыть результат по ссылке' },
+          ).catch(() => {});
+        }
+        return;
       }
       if (raw === 'result') {
         const last = getLastResult();
