@@ -7,29 +7,51 @@ import '@vkontakte/vkui/dist/vkui.css';
 import './vk-iframe-layout.css';
 import App from './App';
 
-// Скрываем экран загрузки VK. В клиенте (Android/ПК) важно: Ready шлём после Init или по таймауту.
+// Скрываем экран загрузки VK. На Android WebView клиент иногда не снимает загрузку с первого раза — шлём несколько раз.
 function sendReady() {
   try {
-    (bridge.send as (method: string) => Promise<unknown>)('VKWebAppReady').catch(() => {});
+    if (typeof bridge?.send === 'function') {
+      (bridge.send as (method: string) => Promise<unknown>)('VKWebAppReady').catch(() => {});
+    }
   } catch {
     // bridge недоступен (открыто не в VK)
   }
 }
 
-// Сначала Init — в WebView на Android/ПК клиент может ждать именно такой порядок
-(bridge.send as (method: string) => Promise<unknown>)('VKWebAppInit')
-  .then(sendReady)
-  .catch(sendReady);
+// Init может зависнуть или выбросить в WebView на Android — не блокируем остальное
+try {
+  (bridge.send as (method: string) => Promise<unknown>)('VKWebAppInit')
+    .then(sendReady)
+    .catch(sendReady);
+} catch {
+  sendReady();
+}
 
-// Запасной вариант: если Init зависнет (например в клиенте), через 2.5 с всё равно шлём Ready
+// Несколько попыток Ready: на части устройств VK снимает загрузку только после повторной отправки
+sendReady(); // сразу
+setTimeout(sendReady, 0);
+setTimeout(sendReady, 500);
 setTimeout(sendReady, 2500);
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', sendReady);
+}
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <VKConfigProviderWrapper>
-        <App />
-      </VKConfigProviderWrapper>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+try {
+  const root = document.getElementById('root');
+  if (root) {
+    ReactDOM.createRoot(root).render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <VKConfigProviderWrapper>
+            <App />
+          </VKConfigProviderWrapper>
+        </ErrorBoundary>
+      </React.StrictMode>
+    );
+  } else {
+    sendReady();
+  }
+} catch (err) {
+  sendReady();
+  console.error('App failed to mount', err);
+}
