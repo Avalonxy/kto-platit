@@ -16,6 +16,8 @@ export type HistoryItem = {
   id: string;
   scenarioTitle: string;
   scenarioEmoji: string;
+  /** Id сценария (coffee, film, …) для отрисовки иконки; опционально для старых записей */
+  scenarioId?: string;
   winner: Participant;
   participantNames: string[];
   date: string;

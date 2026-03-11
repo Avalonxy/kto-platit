@@ -20,14 +20,28 @@ import type { HistoryItem as HistoryItemType, Participant, Scenario } from './ty
 
 export type ActivePanel = 'home' | 'result' | 'history';
 
+/** Параметры запуска VK (vk_user_id, sign, vk_ts и др.) для API истории. */
+type LaunchParams = Record<string, string> | null;
+
 export default function App() {
   const [activePanel, setActivePanel] = useState<ActivePanel>('home');
+  const [launchParams, setLaunchParams] = useState<LaunchParams>(null);
   const [resultData, setResultData] = useState<{
     scenario: Scenario;
     winner: Participant;
     participants: Participant[];
     serverId?: string;
   } | null>(null);
+
+  // Параметры запуска VK — для истории с API и привязки результата к пользователю
+  useEffect(() => {
+    if (!(bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false)) return;
+    (bridge.send as (method: string) => Promise<Record<string, string>>)('VKWebAppGetLaunchParams')
+      .then((p) => {
+        if (p && typeof p === 'object') setLaunchParams(p);
+      })
+      .catch(() => {});
+  }, []);
 
   // Сообщаем VK, что приложение готово — скрывается экран загрузки (VKWebAppInit уже в main.tsx)
   useEffect(() => {
@@ -101,7 +115,8 @@ export default function App() {
     setResultData(data);
     saveLastResult(data);
     setActivePanel('result');
-    createResult(scenario, winner, participants).then((res) => {
+    const vkUserId = launchParams?.vk_user_id ?? null;
+    createResult(scenario, winner, participants, vkUserId).then((res) => {
       if (res?.id) {
         setResultData((prev) => (prev ? { ...prev, serverId: res!.id } : null));
         updateLastHistoryItemServerId(res.id);
@@ -123,10 +138,11 @@ export default function App() {
             <HistoryPanel
               id="history"
               activePanel={activePanel}
+              launchParams={launchParams}
               onBack={() => setActivePanel('home')}
               onOpenResult={(item) => {
                 const scenario = {
-                  id: 'custom',
+                  id: item.scenarioId ?? 'custom',
                   title: item.scenarioTitle,
                   emoji: item.scenarioEmoji,
                 };

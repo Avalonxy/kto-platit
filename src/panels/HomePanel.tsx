@@ -11,35 +11,16 @@ import {
   IconButton,
   CellButton,
 } from '../ui';
-import {
-  Icon28AddOutline,
-  Icon24DeleteOutline,
-  Icon28CoffeeSteamOutline,
-  Icon28VideoOutline,
-  Icon28CarOutline,
-  Icon28ListCheckOutline,
-  Icon28ShoppingCartOutline,
-  Icon28MusicOutline,
-  Icon28LightbulbOutline,
-} from '@vkontakte/icons';
+import { Icon28AddOutline, Icon24DeleteOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import { DEFAULT_SCENARIOS, CHOOSING_THINK_DURATION } from '../constants';
 import { addToHistory } from '../utils/history';
 import { chooseWeightedRandom } from '../utils/weightedChoice';
 import { ChoosingOverlay } from '../components/ChoosingOverlay';
+import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
 type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
-
-const SCENARIO_ICONS: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
-  coffee: Icon28CoffeeSteamOutline,
-  film: Icon28VideoOutline,
-  driver: Icon28CarOutline,
-  duty: Icon28ListCheckOutline,
-  order: Icon28ShoppingCartOutline,
-  music: Icon28MusicOutline,
-  custom: Icon28LightbulbOutline,
-};
 
 type Props = {
   id: string;
@@ -123,6 +104,7 @@ export function HomePanel({ id, onResult }: Props) {
       addToHistory({
         scenarioTitle: displayTitle,
         scenarioEmoji: finalScenario.emoji,
+        scenarioId: finalScenario.id,
         winner,
         participantNames: participants.map((p) => p.name),
       });
@@ -234,7 +216,6 @@ export function HomePanel({ id, onResult }: Props) {
 
       <Group header={<Header mode="secondary">Сценарий</Header>}>
         {DEFAULT_SCENARIOS.map((s) => {
-          const IconComponent = SCENARIO_ICONS[s.id];
           const selected = scenario.id === s.id;
           return (
             <Div key={s.id} style={{ marginBottom: 4 }}>
@@ -255,11 +236,7 @@ export function HomePanel({ id, onResult }: Props) {
                     color: selected ? '#fff' : 'var(--vkui--color_icon_secondary)',
                   }}
                 >
-                  {IconComponent ? (
-                    <IconComponent style={{ width: 28, height: 28 }} />
-                  ) : (
-                    <span style={{ fontSize: 24 }}>{s.emoji}</span>
-                  )}
+                  <ScenarioIcon scenarioId={s.id} emoji={s.emoji} size={28} />
                 </span>
               }
               subtitle={s.id === 'custom' ? 'Введите свой вопрос ниже' : undefined}

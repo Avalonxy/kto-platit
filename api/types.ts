@@ -19,10 +19,15 @@ export type ResultBody = {
   scenario: Scenario;
   winner: Participant;
   participants: Participant[];
+  /** ISO string, проставляется на сервере при сохранении */
+  createdAt?: string;
 };
 
+const MAX_STRING_LEN = 500;
+const MAX_PARTICIPANTS = 50;
+
 function isNonEmptyString(x: unknown): x is string {
-  return typeof x === 'string' && x.trim().length > 0;
+  return typeof x === 'string' && x.trim().length > 0 && x.length <= MAX_STRING_LEN;
 }
 
 function isParticipant(x: unknown): x is Participant {
@@ -31,7 +36,8 @@ function isParticipant(x: unknown): x is Participant {
   return (
     isNonEmptyString(o.id) &&
     isNonEmptyString(o.name) &&
-    (o.photo === undefined || typeof o.photo === 'string') &&
+    (o.photo === undefined ||
+      (typeof o.photo === 'string' && o.photo.length <= MAX_STRING_LEN)) &&
     (o.isFromVk === undefined || typeof o.isFromVk === 'boolean')
   );
 }
@@ -43,7 +49,8 @@ function isScenario(x: unknown): x is Scenario {
     isNonEmptyString(o.id) &&
     isNonEmptyString(o.title) &&
     isNonEmptyString(o.emoji) &&
-    (o.description === undefined || typeof o.description === 'string')
+    (o.description === undefined ||
+      (typeof o.description === 'string' && o.description.length <= MAX_STRING_LEN))
   );
 }
 
@@ -60,6 +67,9 @@ export function validateResultBody(body: unknown): { ok: true; data: ResultBody 
   }
   if (!Array.isArray(o.participants) || o.participants.length === 0) {
     return { ok: false, status: 400, message: 'participants must be a non-empty array' };
+  }
+  if (o.participants.length > MAX_PARTICIPANTS) {
+    return { ok: false, status: 400, message: `participants count exceeds ${MAX_PARTICIPANTS}` };
   }
   for (let i = 0; i < o.participants.length; i++) {
     if (!isParticipant(o.participants[i])) {

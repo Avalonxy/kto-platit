@@ -70,6 +70,19 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
+  const body = data as Record<string, unknown>;
+  if (
+    !body.scenario ||
+    !body.winner ||
+    !Array.isArray(body.participants) ||
+    body.participants.length === 0
+  ) {
+    return new Response(JSON.stringify({ error: 'Result not found or expired' }), {
+      status: 404,
+      headers,
+    });
+  }
+
   return new Response(JSON.stringify(data as ResultBody), {
     status: 200,
     headers,

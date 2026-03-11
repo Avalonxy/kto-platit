@@ -15,6 +15,7 @@ export function getHistory(): HistoryItem[] {
 type AddParams = {
   scenarioTitle: string;
   scenarioEmoji: string;
+  scenarioId?: string;
   winner: Participant;
   participantNames: string[];
 };
@@ -24,6 +25,7 @@ export function addToHistory(params: AddParams): void {
     id: `hist-${Date.now()}`,
     scenarioTitle: params.scenarioTitle,
     scenarioEmoji: params.scenarioEmoji,
+    scenarioId: params.scenarioId,
     winner: params.winner,
     participantNames: params.participantNames,
     date: new Date().toISOString(),

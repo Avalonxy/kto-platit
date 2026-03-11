@@ -49,13 +49,27 @@ export async function POST(request: Request): Promise<Response> {
 
   const id = crypto.randomBytes(8).toString('base64url').replace(/=/g, '').slice(0, 12);
   const key = `result:${id}`;
-  const value = validated.data as ResultBody;
+  const value: ResultBody = {
+    ...(validated.data as ResultBody),
+    createdAt: new Date().toISOString(),
+  };
+
+  const vkUserId = typeof (body as Record<string, unknown>).vk_user_id === 'string'
+    ? (body as Record<string, unknown>).vk_user_id as string
+    : null;
+  const validVkUserId = vkUserId && /^\d+$/.test(vkUserId.trim()) ? vkUserId.trim() : null;
 
   if (!redis) {
     return jsonResponse({ error: 'Storage not configured' }, 503, headers);
   }
   try {
     await redis.set(key, value, { ex: RESULT_TTL_SEC });
+    if (validVkUserId) {
+      const historyKey = `history:${validVkUserId}`;
+      await redis.lpush(historyKey, id);
+      await redis.ltrim(historyKey, 0, 19);
+      await redis.expire(historyKey, 90 * 24 * 60 * 60);
+    }
   } catch (e) {
     console.error('Redis set error:', e);
     return jsonResponse({ error: 'Storage unavailable' }, 503, headers);

@@ -5,6 +5,7 @@ import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import { LOTTIE_CONFETTI, CONFETTI_DURATION_MS } from '../constants';
 import { buildShareResultLink, buildShareResultLinkById } from '../utils/shareResult';
+import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
 const FAVORITES_STORAGE_KEY = 'kto-platit_favorites';
@@ -296,7 +297,14 @@ export function ResultPanel({ id, result, onBack }: Props) {
         Результат
       </PanelHeader>
 
-      <Group header={<Header mode="secondary">{scenario.emoji} {scenario.title}</Header>}>
+      <Group header={
+        <Header mode="secondary">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <ScenarioIcon scenarioId={scenario.id} emoji={scenario.emoji} size={24} />
+            {scenario.title}
+          </span>
+        </Header>
+      }>
         <Div
           style={{
             textAlign: 'center',
