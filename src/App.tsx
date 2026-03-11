@@ -76,7 +76,11 @@ export default function App() {
         { location },
       ).catch(() => {});
     } else if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', `#${location}`);
+      // Не затираем входящий фрагмент #result-... при первом заходе из ссылки.
+      // Для главного экрана без результата оставляем исходный hash.
+      if (activePanel === 'result' && resultData) {
+        window.history.replaceState(null, '', `#${location}`);
+      }
     }
   }, [activePanel, resultData]);
 
