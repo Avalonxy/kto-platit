@@ -7,6 +7,7 @@ type Props = {
   id: string;
   activePanel: string;
   onBack: () => void;
+  onOpenResult?: (item: HistoryItem) => void;
 };
 
 function formatDate(iso: string): string {
@@ -19,7 +20,7 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export function HistoryPanel({ id, activePanel, onBack }: Props) {
+export function HistoryPanel({ id, activePanel, onBack, onOpenResult }: Props) {
   const [items, setItems] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export function HistoryPanel({ id, activePanel, onBack }: Props) {
               key={item.id}
               before={<Avatar size={40}>{item.winner.name[0]}</Avatar>}
               subtitle={`${item.participantNames.join(', ')} · ${formatDate(item.date)}`}
+              onClick={() => onOpenResult?.(item)}
             >
               <span style={{ marginRight: 6 }}>{item.scenarioEmoji}</span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', minWidth: 0 }}>

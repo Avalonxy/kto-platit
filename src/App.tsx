@@ -8,6 +8,14 @@ import { HomePanel } from './panels/HomePanel';
 import { ResultPanel } from './panels/ResultPanel';
 import { HistoryPanel } from './panels/HistoryPanel';
 import { saveLastResult, getLastResult } from './utils/lastResult';
+import {
+  isShareResultFragment,
+  getPayloadFromFragment,
+  decodeSharePayload,
+  looksLikeServerId,
+} from './utils/shareResult';
+import { createResult, fetchResultById } from './api/results';
+import { updateLastHistoryItemServerId } from './utils/history';
 import type { HistoryItem as HistoryItemType, Participant, Scenario } from './types';
 
 export type ActivePanel = 'home' | 'result' | 'history';
@@ -18,6 +26,7 @@ export default function App() {
     scenario: Scenario;
     winner: Participant;
     participants: Participant[];
+    serverId?: string;
   } | null>(null);
 
   // Сообщаем VK, что приложение готово — скрывается экран загрузки (VKWebAppInit уже в main.tsx)
@@ -36,25 +45,51 @@ export default function App() {
     ).catch(() => {});
   }, [activePanel]);
 
-  // Открытие по ссылке с #result: читаем хеш при загрузке и подписываемся на VKWebAppChangeFragment
+  // Открытие по ссылке: #result-<id> (сервер) или #result-<base64> (legacy); #result — последний результат (fallback)
   useEffect(() => {
-    const applyFragment = (location: string) => {
-      if (location !== 'result') return;
-      const last = getLastResult();
-      if (last) {
-        setResultData(last);
-        setActivePanel('result');
+    const applyFragment = async (fragment: string) => {
+      const raw = fragment.trim();
+      if (isShareResultFragment(raw)) {
+        const payload = getPayloadFromFragment(raw);
+        if (payload) {
+          if (looksLikeServerId(payload)) {
+            const data = await fetchResultById(payload);
+            if (data) {
+              setResultData({ ...data, serverId: payload });
+              setActivePanel('result');
+              return;
+            }
+            (bridge.send as (method: string, params: object) => Promise<unknown>)(
+              'VKWebAppShowSnackbar',
+              { text: 'Результат не найден или ссылка устарела (30 дней)' },
+            ).catch(() => {});
+            return;
+          }
+          const decoded = decodeSharePayload(payload);
+          if (decoded) {
+            setResultData(decoded);
+            setActivePanel('result');
+            return;
+          }
+        }
+      }
+      if (raw === 'result') {
+        const last = getLastResult();
+        if (last) {
+          setResultData(last);
+          setActivePanel('result');
+        }
       }
     };
 
-    const hash = window.location.hash.slice(1).toLowerCase();
-    if (hash === 'result') applyFragment('result');
+    const hash = window.location.hash.slice(1);
+    if (hash) void applyFragment(hash);
 
     const handler = (event: unknown) => {
       const e = event as { detail?: { type?: string; data?: { location?: string } } };
       const detail = e?.detail;
       if (detail?.type === 'VKWebAppChangeFragment' && detail?.data && 'location' in detail.data) {
-        applyFragment(String(detail.data.location));
+        void applyFragment(String(detail.data.location));
       }
     };
     bridge.subscribe(handler);
@@ -66,6 +101,12 @@ export default function App() {
     setResultData(data);
     saveLastResult(data);
     setActivePanel('result');
+    createResult(scenario, winner, participants).then((res) => {
+      if (res?.id) {
+        setResultData((prev) => (prev ? { ...prev, serverId: res!.id } : null));
+        updateLastHistoryItemServerId(res.id);
+      }
+    });
   };
 
   return (
@@ -79,7 +120,29 @@ export default function App() {
               result={resultData}
               onBack={() => setActivePanel('home')}
             />
-            <HistoryPanel id="history" activePanel={activePanel} onBack={() => setActivePanel('home')} />
+            <HistoryPanel
+              id="history"
+              activePanel={activePanel}
+              onBack={() => setActivePanel('home')}
+              onOpenResult={(item) => {
+                const scenario = {
+                  id: 'custom',
+                  title: item.scenarioTitle,
+                  emoji: item.scenarioEmoji,
+                };
+                const participants = item.participantNames.map((name, idx) => ({
+                  id: `p-${idx}-${name.slice(0, 8)}`,
+                  name,
+                }));
+                setResultData({
+                  scenario,
+                  winner: item.winner,
+                  participants,
+                  serverId: item.serverId,
+                });
+                setActivePanel('result');
+              }}
+            />
           </View>
           <Tabbar>
             <TabbarItem

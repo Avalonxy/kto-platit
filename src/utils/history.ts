@@ -31,3 +31,18 @@ export function addToHistory(params: AddParams): void {
   const list = [item, ...getHistory()].slice(0, MAX_HISTORY);
   localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(list));
 }
+
+/**
+ * Привязывает серверный id к последнему добавленному элементу истории
+ * (после успешного POST /api/result), чтобы по ссылке #result-<id> открывался этот результат.
+ */
+export function updateLastHistoryItemServerId(serverId: string): void {
+  const list = getHistory();
+  if (list.length === 0) return;
+  const updated = [{ ...list[0], serverId }, ...list.slice(1)];
+  try {
+    localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+}

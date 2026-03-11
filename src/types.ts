@@ -19,4 +19,6 @@ export type HistoryItem = {
   winner: Participant;
   participantNames: string[];
   date: string;
+  /** Id результата на сервере — для ссылки #result-<serverId> (шеринг, открытие из истории). */
+  serverId?: string;
 };
