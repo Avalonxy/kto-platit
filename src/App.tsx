@@ -16,6 +16,7 @@ import {
 } from './utils/shareResult';
 import { createResult, fetchResultById } from './api/results';
 import { updateLastHistoryItemServerId } from './utils/history';
+import { sendVKWebAppReady } from './utils/vkReady';
 import type { HistoryItem as HistoryItemType, Participant, Scenario } from './types';
 
 export type ActivePanel = 'home' | 'result' | 'history';
@@ -32,6 +33,7 @@ export default function App() {
     participants: Participant[];
     serverId?: string;
   } | null>(null);
+  const [showReadyFallback, setShowReadyFallback] = useState(false);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -45,10 +47,15 @@ export default function App() {
 
   // Сообщаем VK, что приложение готово — скрывается экран загрузки (VKWebAppInit уже в main.tsx)
   useEffect(() => {
-    const t = requestAnimationFrame(() => {
-      (bridge.send as (method: string) => Promise<unknown>)('VKWebAppReady').catch(() => {});
-    });
+    const t = requestAnimationFrame(() => sendVKWebAppReady());
     return () => cancelAnimationFrame(t);
+  }, []);
+
+  // Если в VK через 4 с всё ещё висит загрузка — показываем кнопку «Продолжить» (повторная отправка Ready)
+  useEffect(() => {
+    if (!(bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false)) return;
+    const id = setTimeout(() => setShowReadyFallback(true), 4000);
+    return () => clearTimeout(id);
   }, []);
 
   // Хеш в URL для шаринга и глубоких ссылок (VKWebAppSetLocation)
@@ -126,6 +133,44 @@ export default function App() {
 
   return (
     <AppRoot>
+      {showReadyFallback && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10000,
+            padding: '12px 16px',
+            background: 'var(--vkui--color_background_contrast, #fff)',
+            color: 'var(--vkui--color_text_primary, #000)',
+            fontSize: 14,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            textAlign: 'center',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              sendVKWebAppReady();
+              setShowReadyFallback(false);
+            }}
+            style={{
+              background: 'var(--vkui--color_accent, #0077FF)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '10px 16px',
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: 'pointer',
+              width: '100%',
+            }}
+          >
+            Экран загрузки не исчез? Нажмите сюда
+          </button>
+        </div>
+      )}
       <SplitLayout>
         <SplitCol>
           <View activePanel={activePanel}>

@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import bridge from '@vkontakte/vk-bridge';
+import { sendVKWebAppReady } from './utils/vkReady';
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean };
@@ -16,11 +16,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(_error: Error, _info: ErrorInfo): void {
-    try {
-      (bridge.send as (method: string) => Promise<unknown>)('VKWebAppReady').catch(() => {});
-    } catch {
-      // bridge недоступен
-    }
+    sendVKWebAppReady();
   }
 
   render(): ReactNode {
