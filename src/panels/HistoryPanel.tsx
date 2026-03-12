@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import bridge from '@vkontakte/vk-bridge';
 import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button, Spinner } from '../ui';
+import { getScenarioIdByTitle } from '../constants';
 import { getHistory } from '../utils/history';
 import { fetchHistory, type HistoryApiItem } from '../api/results';
 import { ScenarioIcon } from '../components/ScenarioIcon';
@@ -87,7 +88,7 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
               onClick={() => onOpenResult?.(item)}
             >
               <span style={{ marginRight: 8, display: 'inline-flex', alignItems: 'center' }}>
-                <ScenarioIcon scenarioId={item.scenarioId} emoji={item.scenarioEmoji} size={24} />
+                <ScenarioIcon scenarioId={item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle)} size={24} />
               </span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', minWidth: 0 }}>
                 {item.scenarioTitle} → {item.winner.name}

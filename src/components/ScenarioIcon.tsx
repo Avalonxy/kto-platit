@@ -29,19 +29,15 @@ type Props = {
 };
 
 /**
- * Иконка сценария: отображает иконку VKUI по scenarioId, иначе эмодзи.
- * Нужно для единообразия и соответствия требованиям модерации (не только эмодзи).
+ * Иконка сценария: всегда отображает иконку VKUI по scenarioId.
+ * Для неизвестного/кастомного сценария — лампочка (как на главной).
+ * Эмодзи в интерфейсе не используются, единообразие с главным экраном.
  */
-export function ScenarioIcon({ scenarioId, emoji, size = 28, style }: Props) {
-  const IconComponent = scenarioId ? SCENARIO_ICONS[scenarioId] : null;
-  if (IconComponent) {
-    return <IconComponent style={{ width: size, height: size, ...style }} />;
-  }
-  return (
-    <span style={{ fontSize: size, lineHeight: 1, ...style }} role="img" aria-hidden>
-      {emoji ?? '💡'}
-    </span>
-  );
+export function ScenarioIcon({ scenarioId, size = 28, style }: Props) {
+  const IconComponent = scenarioId && SCENARIO_ICONS[scenarioId]
+    ? SCENARIO_ICONS[scenarioId]
+    : Icon28LightbulbOutline;
+  return <IconComponent style={{ width: size, height: size, ...style }} />;
 }
 
 export { SCENARIO_ICONS };

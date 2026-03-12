@@ -10,6 +10,12 @@ export const DEFAULT_SCENARIOS: Scenario[] = [
   { id: 'custom', title: 'Свой вариант', emoji: '💡' },
 ];
 
+/** По заголовку сценария возвращает id (для старых записей истории без scenarioId). */
+export function getScenarioIdByTitle(title: string): string | undefined {
+  const s = DEFAULT_SCENARIOS.find((sc) => sc.title === title);
+  return s?.id;
+}
+
 export const STORAGE_HISTORY_KEY = 'kto-platit-history';
 /** Ключ для сохранения последнего результата (открытие по ссылке #result). */
 export const STORAGE_LAST_RESULT_KEY = 'kto-platit_last_result';

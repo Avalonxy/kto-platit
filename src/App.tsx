@@ -18,6 +18,7 @@ import {
 import { createResult, fetchResultById } from './api/results';
 import { updateLastHistoryItemServerId } from './utils/history';
 import { sendVKWebAppReady } from './utils/vkReady';
+import { getScenarioIdByTitle } from './constants';
 import type { HistoryItem as HistoryItemType, Participant, Scenario } from './types';
 
 export type ActivePanel = 'home' | 'result' | 'history';
@@ -214,7 +215,7 @@ export default function App() {
               onBack={() => setActivePanel('home')}
               onOpenResult={(item) => {
                 const scenario = {
-                  id: item.scenarioId ?? 'custom',
+                  id: item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle) ?? 'custom',
                   title: item.scenarioTitle,
                   emoji: item.scenarioEmoji,
                 };
