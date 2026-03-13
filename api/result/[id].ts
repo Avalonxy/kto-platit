@@ -83,7 +83,32 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
-  return new Response(JSON.stringify(data as ResultBody), {
+  const participantVkIds = Array.isArray(body.participant_vk_ids)
+    ? (body.participant_vk_ids as number[]).map(String)
+    : [];
+  const creatorVkUserId =
+    typeof body.creator_vk_user_id === 'string' && body.creator_vk_user_id
+      ? body.creator_vk_user_id
+      : null;
+  const viewerId = new URL(request.url).searchParams.get('viewer_id') ?? null;
+  const viewerIdTrimmed = viewerId && /^\d+$/.test(viewerId.trim()) ? viewerId.trim() : null;
+
+  const allowed =
+    viewerIdTrimmed &&
+    (participantVkIds.includes(viewerIdTrimmed) || viewerIdTrimmed === creatorVkUserId);
+  const noRestriction = participantVkIds.length === 0 && !creatorVkUserId;
+  if (!noRestriction && !allowed) {
+    return new Response(
+      JSON.stringify({
+        allowed: false,
+        message: 'Результат доступен только участникам жеребьёвки.',
+      }),
+      { status: 403, headers },
+    );
+  }
+
+  const { participant_vk_ids: _pvk, creator_vk_user_id: _cvk, ...publicResult } = body;
+  return new Response(JSON.stringify(publicResult as ResultBody), {
     status: 200,
     headers,
   });

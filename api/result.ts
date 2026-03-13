@@ -49,15 +49,23 @@ export async function POST(request: Request): Promise<Response> {
 
   const id = crypto.randomBytes(8).toString('base64url').replace(/=/g, '').slice(0, 12);
   const key = `result:${id}`;
-  const value: ResultBody = {
-    ...(validated.data as ResultBody),
-    createdAt: new Date().toISOString(),
-  };
-
+  const data = validated.data as ResultBody;
   const vkUserId = typeof (body as Record<string, unknown>).vk_user_id === 'string'
     ? (body as Record<string, unknown>).vk_user_id as string
     : null;
   const validVkUserId = vkUserId && /^\d+$/.test(vkUserId.trim()) ? vkUserId.trim() : null;
+
+  // Участники с id вида "vk-12345" — список VK id для проверки доступа при просмотре по ссылке
+  const participantVkIds: number[] = (data.participants || [])
+    .map((p) => { const m = p.id.match(/^vk-(\d+)$/); return m ? parseInt(m[1], 10) : null; })
+    .filter((n): n is number => n !== null);
+
+  const value: ResultBody & { participant_vk_ids?: number[]; creator_vk_user_id?: string | null } = {
+    ...data,
+    createdAt: new Date().toISOString(),
+    participant_vk_ids: participantVkIds,
+    creator_vk_user_id: validVkUserId ?? null,
+  };
 
   if (!redis) {
     return jsonResponse({ error: 'Storage not configured' }, 503, headers);

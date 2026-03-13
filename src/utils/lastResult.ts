@@ -39,6 +39,13 @@ export function saveLastResult(data: LastResultData): void {
   }
 }
 
+/** Из участников с id вида "vk-12345" извлекает VK user id для проверки доступа. */
+export function getParticipantVkIds(participants: Participant[]): string[] {
+  return (participants || [])
+    .map((p) => { const m = p.id.match(/^vk-(\d+)$/); return m ? m[1] : null; })
+    .filter((id): id is string => id !== null);
+}
+
 export function getLastResult(): LastResultData | null {
   try {
     const raw = localStorage.getItem(STORAGE_LAST_RESULT_KEY);

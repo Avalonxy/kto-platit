@@ -66,19 +66,40 @@ export async function fetchHistory(
 }
 
 /**
- * Загружает результат по серверному id. 404 или ошибка → null.
+ * Результат запроса: данные, отказ в доступе (только для участников) или не найден/ошибка.
  */
-export async function fetchResultById(id: string): Promise<ResultResponse | null> {
+export type FetchResultOutcome =
+  | { ok: true; data: ResultResponse }
+  | { ok: false; reason: 'forbidden' }
+  | { ok: false; reason: 'not_found' };
+
+/**
+ * Загружает результат по серверному id.
+ * Передаёт viewer_id из VK, чтобы сервер проверил, что смотрящий — участник жеребьёвки.
+ */
+export async function fetchResultById(
+  id: string,
+  viewerVkUserId?: string | null,
+): Promise<FetchResultOutcome> {
   try {
-    const res = await fetch(`/api/result/${encodeURIComponent(id)}`, {
+    const url = new URL(`/api/result/${encodeURIComponent(id)}`, window.location.origin);
+    if (viewerVkUserId && /^\d+$/.test(String(viewerVkUserId))) {
+      url.searchParams.set('viewer_id', String(viewerVkUserId));
+    }
+    const res = await fetch(url.toString(), {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
-    if (!res.ok) return null;
+    if (res.status === 403) {
+      return { ok: false, reason: 'forbidden' };
+    }
+    if (!res.ok) return { ok: false, reason: 'not_found' };
     const data = (await res.json()) as ResultResponse;
-    if (!data?.scenario || !data?.winner || !Array.isArray(data.participants)) return null;
-    return data;
+    if (!data?.scenario || !data?.winner || !Array.isArray(data.participants)) {
+      return { ok: false, reason: 'not_found' };
+    }
+    return { ok: true, data };
   } catch {
-    return null;
+    return { ok: false, reason: 'not_found' };
   }
 }

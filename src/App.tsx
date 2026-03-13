@@ -7,7 +7,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { HomePanel } from './panels/HomePanel';
 import { ResultPanel } from './panels/ResultPanel';
 import { HistoryPanel } from './panels/HistoryPanel';
-import { saveLastResult, getLastResult } from './utils/lastResult';
+import { saveLastResult, getLastResult, getParticipantVkIds } from './utils/lastResult';
 import {
   isShareResultFragment,
   getPayloadFromFragment,
@@ -35,7 +35,8 @@ export default function App() {
     participants: Participant[];
     serverId?: string;
   } | null>(null);
-  const [showReadyFallback, setShowReadyFallback] = useState(false);
+  /** Просмотр по ссылке #result-<id>, но доступ запрещён (не участник жеребьёвки). */
+  const [resultAccessDenied, setResultAccessDenied] = useState(false);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -51,13 +52,6 @@ export default function App() {
   useEffect(() => {
     const t = requestAnimationFrame(() => sendVKWebAppReady());
     return () => cancelAnimationFrame(t);
-  }, []);
-
-  // Если в VK через 4 с всё ещё висит загрузка — показываем кнопку «Продолжить» (повторная отправка Ready)
-  useEffect(() => {
-    if (!(bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false)) return;
-    const id = setTimeout(() => setShowReadyFallback(true), 4000);
-    return () => clearTimeout(id);
   }, []);
 
   // Хеш в URL: при просмотре результата — полный фрагмент #result-<id> или #result-<base64>,
@@ -85,8 +79,12 @@ export default function App() {
     }
   }, [activePanel, resultData]);
 
-  // Открытие по ссылке: #result-<id> (сервер) или #result-<base64> (legacy); #result — последний результат (fallback)
+  // Открытие по ссылке: #result-<id> (сервер) или #result-<base64> (legacy); #result — последний результат (fallback).
+  // Зависимость от launchParams: при первом заходе по ссылке в VK параметры могут подгрузиться позже — тогда повторно запрашиваем результат с viewer_id.
   useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+
     const applyFragment = async (fragment: string) => {
       const raw = fragment.trim();
       if (isShareResultFragment(raw)) {
@@ -94,9 +92,17 @@ export default function App() {
         let opened = false;
         if (payload) {
           if (looksLikeServerId(payload)) {
-            const data = await fetchResultById(payload);
-            if (data) {
-              setResultData({ ...data, serverId: payload });
+            const viewerId = launchParams?.vk_user_id ?? null;
+            const outcome = await fetchResultById(payload, viewerId);
+            if (outcome.ok) {
+              setResultAccessDenied(false);
+              setResultData({ ...outcome.data, serverId: payload });
+              setActivePanel('result');
+              return;
+            }
+            if (outcome.reason === 'forbidden') {
+              setResultAccessDenied(true);
+              setResultData(null);
               setActivePanel('result');
               return;
             }
@@ -108,6 +114,7 @@ export default function App() {
           }
           const decoded = decodeSharePayload(payload);
           if (decoded) {
+            setResultAccessDenied(false);
             setResultData(decoded);
             setActivePanel('result');
             opened = true;
@@ -125,14 +132,26 @@ export default function App() {
       if (raw === 'result') {
         const last = getLastResult();
         if (last) {
-          setResultData(last);
-          setActivePanel('result');
+          const participantVkIds = getParticipantVkIds(last.participants);
+          const viewerId = launchParams?.vk_user_id?.trim() ?? null;
+          const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+          const canView =
+            !inVK ||
+            !viewerId ||
+            participantVkIds.length === 0 ||
+            participantVkIds.includes(viewerId);
+          if (canView) {
+            setResultAccessDenied(false);
+            setResultData(last);
+            setActivePanel('result');
+          } else {
+            setResultAccessDenied(true);
+            setResultData(null);
+            setActivePanel('result');
+          }
         }
       }
     };
-
-    const hash = window.location.hash.slice(1);
-    if (hash) void applyFragment(hash);
 
     const handler = (event: unknown) => {
       const e = event as { detail?: { type?: string; data?: { location?: string } } };
@@ -142,11 +161,13 @@ export default function App() {
       }
     };
     bridge.subscribe(handler);
+    void applyFragment(hash);
     return () => bridge.unsubscribe(handler);
-  }, []);
+  }, [launchParams]);
 
   const openResult = (scenario: Scenario, winner: Participant, participants: Participant[]) => {
     const data = { scenario, winner, participants };
+    setResultAccessDenied(false);
     setResultData(data);
     saveLastResult(data);
     setActivePanel('result');
@@ -161,44 +182,6 @@ export default function App() {
 
   return (
     <AppRoot>
-      {showReadyFallback && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10000,
-            padding: '12px 16px',
-            background: 'var(--vkui--color_background_contrast, #fff)',
-            color: 'var(--vkui--color_text_primary, #000)',
-            fontSize: 14,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            textAlign: 'center',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              sendVKWebAppReady();
-              setShowReadyFallback(false);
-            }}
-            style={{
-              background: 'var(--vkui--color_accent, #0077FF)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              padding: '10px 16px',
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: 'pointer',
-              width: '100%',
-            }}
-          >
-            Экран загрузки не исчез? Нажмите сюда
-          </button>
-        </div>
-      )}
       <SplitLayout>
         <SplitCol>
           <View activePanel={activePanel}>
@@ -206,7 +189,11 @@ export default function App() {
             <ResultPanel
               id="result"
               result={resultData}
-              onBack={() => setActivePanel('home')}
+              accessDenied={resultAccessDenied}
+              onBack={() => {
+                setResultAccessDenied(false);
+                setActivePanel('home');
+              }}
             />
             <HistoryPanel
               id="history"
@@ -214,6 +201,7 @@ export default function App() {
               launchParams={launchParams}
               onBack={() => setActivePanel('home')}
               onOpenResult={(item) => {
+                setResultAccessDenied(false);
                 const scenario = {
                   id: item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle) ?? 'custom',
                   title: item.scenarioTitle,

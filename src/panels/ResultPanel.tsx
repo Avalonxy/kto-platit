@@ -21,6 +21,8 @@ type ResultData = {
 type Props = {
   id: string;
   result: ResultData;
+  /** Просмотр по ссылке, но пользователь не участник жеребьёвки — показать сообщение вместо результата. */
+  accessDenied?: boolean;
   onBack: () => void;
 };
 
@@ -191,7 +193,7 @@ function getFavoritesStatus(): FavoritesStatus {
   return null;
 }
 
-export function ResultPanel({ id, result, onBack }: Props) {
+export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
   const [favoritesStatus, setFavoritesStatus] = useState<FavoritesStatus>(getFavoritesStatus);
   const [confettiData, setConfettiData] = useState<object | null>(null);
   const [confettiVisible, setConfettiVisible] = useState(true);
@@ -261,11 +263,27 @@ export function ResultPanel({ id, result, onBack }: Props) {
   if (!result) {
     return (
       <Panel id={id}>
-        <PanelHeader>Результат</PanelHeader>
-        <Div>Нет данных</Div>
-        <Button size="l" stretched onClick={onBack}>
-          Назад
-        </Button>
+        <PanelHeader before={<Button onClick={onBack}>Назад</Button>}>
+          Результат
+        </PanelHeader>
+        <Group>
+          <Div
+            style={{
+              padding: '24px 16px',
+              textAlign: 'center',
+              color: 'var(--vkui--color_text_secondary)',
+              fontSize: 15,
+              lineHeight: 1.5,
+            }}
+          >
+            {accessDenied
+              ? 'Результат доступен только участникам жеребьёвки. Если вы участвовали — откройте ссылку в приложении ВКонтакте.'
+              : 'Нет данных'}
+          </Div>
+          <Button size="l" stretched onClick={onBack}>
+            {accessDenied ? 'Понятно' : 'Назад'}
+          </Button>
+        </Group>
         <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
       </Panel>
     );
