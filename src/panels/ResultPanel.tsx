@@ -4,7 +4,7 @@ import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '../ui';
 import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import { LOTTIE_CONFETTI, CONFETTI_DURATION_MS } from '../constants';
-import { buildShareResultLink, buildShareResultLinkById } from '../utils/shareResult';
+import { buildShareResultLinkById } from '../utils/shareResult';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
@@ -293,8 +293,8 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
   const shareMessage = buildShareMessage(scenario, winner, participants);
 
   const handleShare = async () => {
-    // Шаринг идёт через VK Bridge (bridge.send), не через VKUI. В VKUI только кнопка (Button) ниже.
-    // VKWebAppShare принимает только link; текст копируем в буфер — пользователь вставит в диалоге.
+    if (!result.serverId) return;
+    // Шаринг идёт через VK Bridge; ссылка только серверная (проверка участников).
     try {
       await navigator.clipboard.writeText(shareMessage);
       (bridge.send as (method: string, params?: object) => Promise<unknown>)('VKWebAppShowSnackbar', {
@@ -303,9 +303,7 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
     } catch {
       // Буфер недоступен — просто откроем шаринг ссылки
     }
-    const link = result.serverId
-      ? buildShareResultLinkById(result.serverId)
-      : buildShareResultLink(scenario, winner, participants);
+    const link = buildShareResultLinkById(result.serverId);
     bridge.send('VKWebAppShare', { link }).catch(() => {});
   };
 
@@ -457,8 +455,9 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
             stretched
             before={<Icon24ShareOutline />}
             onClick={handleShare}
+            disabled={!result.serverId}
           >
-            Отправить другу
+            {result.serverId ? 'Отправить другу' : 'Подготовка ссылки…'}
           </Button>
         </Div>
         <Div>

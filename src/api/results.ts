@@ -9,18 +9,22 @@ export type ResultResponse = {
 
 /**
  * Сохраняет результат на сервере, возвращает короткий id для ссылки.
- * vk_user_id привязывает результат к истории пользователя в VK.
- * При ошибке сети или 5xx возвращает null.
+ * Передаёт launchParams (sign + vk_*) для проверки на сервере — в историю и как создатель попадает только верифицированный vk_user_id.
  */
 export async function createResult(
   scenario: Scenario,
   winner: Participant,
   participants: Participant[],
-  vkUserId?: string | null,
+  launchParams: Record<string, string> | null,
 ): Promise<{ id: string } | null> {
   try {
     const body: Record<string, unknown> = { scenario, winner, participants };
-    if (vkUserId && /^\d+$/.test(String(vkUserId))) body.vk_user_id = String(vkUserId);
+    if (launchParams?.sign) {
+      body.sign = launchParams.sign;
+      Object.keys(launchParams).forEach((key) => {
+        if (key.startsWith('vk_')) body[key] = launchParams[key];
+      });
+    }
     const res = await fetch('/api/result', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,16 +79,20 @@ export type FetchResultOutcome =
 
 /**
  * Загружает результат по серверному id.
- * Передаёт viewer_id из VK, чтобы сервер проверил, что смотрящий — участник жеребьёвки.
+ * Передаёт launchParams (sign + vk_*) для проверки подписи на сервере — viewer_id принимается только после верификации.
  */
 export async function fetchResultById(
   id: string,
-  viewerVkUserId?: string | null,
+  launchParams: Record<string, string> | null,
 ): Promise<FetchResultOutcome> {
   try {
     const url = new URL(`/api/result/${encodeURIComponent(id)}`, window.location.origin);
-    if (viewerVkUserId && /^\d+$/.test(String(viewerVkUserId))) {
-      url.searchParams.set('viewer_id', String(viewerVkUserId));
+    if (launchParams?.vk_user_id && launchParams?.sign) {
+      url.searchParams.set('viewer_id', launchParams.vk_user_id);
+      url.searchParams.set('sign', launchParams.sign);
+      Object.keys(launchParams).forEach((key) => {
+        if (key.startsWith('vk_')) url.searchParams.set(key, launchParams[key]);
+      });
     }
     const res = await fetch(url.toString(), {
       method: 'GET',

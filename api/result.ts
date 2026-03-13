@@ -1,6 +1,8 @@
 import type { ResultBody } from './types';
 import { validateResultBody } from './types';
 import { redis } from './redis';
+import { checkRateLimit, RATE_LIMIT_POST_RESULT } from './rateLimit';
+import { verifyVkSign, isVkTsValid } from './vkSign';
 import crypto from 'crypto';
 
 const RESULT_TTL_SEC = 30 * 24 * 60 * 60; // 30 days
@@ -35,6 +37,21 @@ export async function POST(request: Request): Promise<Response> {
     return jsonResponse({ error: 'Method not allowed' }, 405, headers);
   }
 
+  const rate = await checkRateLimit(
+    redis,
+    request,
+    'result:post',
+    RATE_LIMIT_POST_RESULT.limit,
+    RATE_LIMIT_POST_RESULT.windowSec,
+  );
+  if (!rate.allowed) {
+    const status = rate.status ?? 429;
+    const message = status === 503
+      ? 'Сервис временно недоступен. Попробуйте позже.'
+      : 'Слишком много запросов. Подождите минуту.';
+    return jsonResponse({ error: message }, status, headers);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -50,10 +67,20 @@ export async function POST(request: Request): Promise<Response> {
   const id = crypto.randomBytes(8).toString('base64url').replace(/=/g, '').slice(0, 12);
   const key = `result:${id}`;
   const data = validated.data as ResultBody;
-  const vkUserId = typeof (body as Record<string, unknown>).vk_user_id === 'string'
-    ? (body as Record<string, unknown>).vk_user_id as string
-    : null;
-  const validVkUserId = vkUserId && /^\d+$/.test(vkUserId.trim()) ? vkUserId.trim() : null;
+  const b = body as Record<string, unknown>;
+  let validVkUserId: string | null = null;
+  const sign = typeof b.sign === 'string' ? b.sign : null;
+  const secret = process.env.VK_APP_SECRET ?? process.env.CLIENT_SECRET ?? '';
+  if (sign && secret) {
+    const params: Record<string, string> = {};
+    Object.keys(b).forEach((key) => {
+      if (key.startsWith('vk_') && typeof b[key] === 'string') params[key] = b[key] as string;
+    });
+    if (verifyVkSign(params, sign, secret) && isVkTsValid(params)) {
+      const fromParams = params['vk_user_id'];
+      if (fromParams && /^\d+$/.test(fromParams.trim())) validVkUserId = fromParams.trim();
+    }
+  }
 
   // Участники с id вида "vk-12345" — список VK id для проверки доступа при просмотре по ссылке
   const participantVkIds: number[] = (data.participants || [])

@@ -1,5 +1,5 @@
-import crypto from 'crypto';
 import { redis } from './redis';
+import { verifyVkSign, isVkTsValid } from './vkSign';
 import type { ResultBody } from './types';
 
 const HISTORY_LIST_MAX = 20;
@@ -15,22 +15,6 @@ function corsHeaders(origin: string | null): HeadersInit {
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Content-Type': 'application/json; charset=utf-8',
   };
-}
-
-/**
- * Проверка подписи параметров запуска VK Mini Apps.
- * Параметры vk_* сортируются по ключу, склеиваются в key1=value1&key2=value2,
- * подпись: HMAC-SHA256(secret, string), затем base64url (без padding).
- */
-function verifyVkSign(params: Record<string, string>, sign: string, secret: string): boolean {
-  const keys = Object.keys(params)
-    .filter((k) => k.startsWith('vk_'))
-    .sort();
-  if (keys.length === 0) return false;
-  const str = keys.map((k) => `${k}=${params[k]}`).join('&');
-  const hmac = crypto.createHmac('sha256', secret).update(str).digest('base64');
-  const expected = hmac.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return expected === sign.replace(/=+$/, '');
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -76,6 +60,12 @@ export async function GET(request: Request): Promise<Response> {
       headers,
     });
   }
+  if (!isVkTsValid(params)) {
+    return new Response(JSON.stringify({ error: 'Launch params expired, reopen the app' }), {
+      status: 401,
+      headers,
+    });
+  }
 
   if (!redis) {
     return new Response(JSON.stringify({ error: 'Storage not configured' }), {
@@ -104,7 +94,8 @@ export async function GET(request: Request): Promise<Response> {
       if (data && typeof data === 'object' && data !== null) {
         const obj = data as Record<string, unknown>;
         if (obj.scenario && obj.winner && Array.isArray(obj.participants)) {
-          results.push({ ...(obj as ResultBody), id });
+          const { participant_vk_ids: _p, creator_vk_user_id: _c, ...publicResult } = obj;
+          results.push({ ...(publicResult as ResultBody), id });
         }
       }
     } catch {

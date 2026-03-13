@@ -11,9 +11,7 @@ import { saveLastResult, getLastResult, getParticipantVkIds } from './utils/last
 import {
   isShareResultFragment,
   getPayloadFromFragment,
-  decodeSharePayload,
   looksLikeServerId,
-  encodeSharePayload,
 } from './utils/shareResult';
 import { createResult, fetchResultById } from './api/results';
 import { updateLastHistoryItemServerId } from './utils/history';
@@ -54,16 +52,14 @@ export default function App() {
     return () => cancelAnimationFrame(t);
   }, []);
 
-  // Хеш в URL: при просмотре результата — полный фрагмент #result-<id> или #result-<base64>,
-  // чтобы при шаринге страницы друг получал ссылку на этот результат, а не на главную (#result).
-  // В браузере (не в VK) обновляем hash в адресной строке — так можно проверить шеринг
+  // Хеш в URL: только серверный id (#result-<id>), чтобы по ссылке работала проверка участников. Пока id нет — #result.
   useEffect(() => {
     const location =
-      activePanel === 'result' && resultData
-        ? resultData.serverId
-          ? `result-${resultData.serverId}`
-          : `result-${encodeSharePayload(resultData.scenario, resultData.winner, resultData.participants)}`
-        : activePanel;
+      activePanel === 'result' && resultData?.serverId
+        ? `result-${resultData.serverId}`
+        : activePanel === 'result' && resultData
+          ? 'result'
+          : activePanel;
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
     if (inVK) {
       (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
@@ -79,8 +75,8 @@ export default function App() {
     }
   }, [activePanel, resultData]);
 
-  // Открытие по ссылке: #result-<id> (сервер) или #result-<base64> (legacy); #result — последний результат (fallback).
-  // Зависимость от launchParams: при первом заходе по ссылке в VK параметры могут подгрузиться позже — тогда повторно запрашиваем результат с viewer_id.
+  // Открытие по ссылке: #result-<id> (сервер, с проверкой участников) или #result — последний результат (fallback).
+  // Зависимость от launchParams: при первом заходе подгружаем параметры и повторно запрашиваем с подписью.
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     if (!hash) return;
@@ -89,44 +85,30 @@ export default function App() {
       const raw = fragment.trim();
       if (isShareResultFragment(raw)) {
         const payload = getPayloadFromFragment(raw);
-        let opened = false;
-        if (payload) {
-          if (looksLikeServerId(payload)) {
-            const viewerId = launchParams?.vk_user_id ?? null;
-            const outcome = await fetchResultById(payload, viewerId);
-            if (outcome.ok) {
-              setResultAccessDenied(false);
-              setResultData({ ...outcome.data, serverId: payload });
-              setActivePanel('result');
-              return;
-            }
-            if (outcome.reason === 'forbidden') {
-              setResultAccessDenied(true);
-              setResultData(null);
-              setActivePanel('result');
-              return;
-            }
-            (bridge.send as (method: string, params: object) => Promise<unknown>)(
-              'VKWebAppShowSnackbar',
-              { text: 'Результат не найден или ссылка устарела (30 дней)' },
-            ).catch(() => {});
-            return;
-          }
-          const decoded = decodeSharePayload(payload);
-          if (decoded) {
+        if (payload && looksLikeServerId(payload)) {
+          const outcome = await fetchResultById(payload, launchParams);
+          if (outcome.ok) {
             setResultAccessDenied(false);
-            setResultData(decoded);
+            setResultData({ ...outcome.data, serverId: payload });
             setActivePanel('result');
-            opened = true;
             return;
           }
-        }
-        if (!opened) {
+          if (outcome.reason === 'forbidden') {
+            setResultAccessDenied(true);
+            setResultData(null);
+            setActivePanel('result');
+            return;
+          }
           (bridge.send as (method: string, params: object) => Promise<unknown>)(
             'VKWebAppShowSnackbar',
-            { text: 'Не удалось открыть результат по ссылке' },
+            { text: 'Результат не найден или ссылка устарела (30 дней)' },
           ).catch(() => {});
+          return;
         }
+        (bridge.send as (method: string, params: object) => Promise<unknown>)(
+          'VKWebAppShowSnackbar',
+          { text: 'Неверная ссылка на результат. Используйте ссылку из приложения.' },
+        ).catch(() => {});
         return;
       }
       if (raw === 'result') {
@@ -135,12 +117,12 @@ export default function App() {
           const participantVkIds = getParticipantVkIds(last.participants);
           const viewerId = launchParams?.vk_user_id?.trim() ?? null;
           const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+          const noVerification = participantVkIds.length === 0;
           const canView =
             !inVK ||
             !viewerId ||
-            participantVkIds.length === 0 ||
-            participantVkIds.includes(viewerId);
-          if (canView) {
+            (noVerification ? false : participantVkIds.includes(viewerId));
+           if (canView) {
             setResultAccessDenied(false);
             setResultData(last);
             setActivePanel('result');
@@ -171,8 +153,7 @@ export default function App() {
     setResultData(data);
     saveLastResult(data);
     setActivePanel('result');
-    const vkUserId = launchParams?.vk_user_id ?? null;
-    createResult(scenario, winner, participants, vkUserId).then((res) => {
+    createResult(scenario, winner, participants, launchParams).then((res) => {
       if (res?.id) {
         setResultData((prev) => (prev ? { ...prev, serverId: res!.id } : null));
         updateLastHistoryItemServerId(res.id);
@@ -200,8 +181,22 @@ export default function App() {
               activePanel={activePanel}
               launchParams={launchParams}
               onBack={() => setActivePanel('home')}
-              onOpenResult={(item) => {
+              onOpenResult={async (item) => {
                 setResultAccessDenied(false);
+                if (item.serverId && launchParams?.vk_user_id && launchParams?.sign) {
+                  const outcome = await fetchResultById(item.serverId, launchParams);
+                  if (outcome.ok) {
+                    setResultData({ ...outcome.data, serverId: item.serverId });
+                    setActivePanel('result');
+                    return;
+                  }
+                  if (outcome.reason === 'forbidden') {
+                    setResultAccessDenied(true);
+                    setResultData(null);
+                    setActivePanel('result');
+                    return;
+                  }
+                }
                 const scenario = {
                   id: item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle) ?? 'custom',
                   title: item.scenarioTitle,
