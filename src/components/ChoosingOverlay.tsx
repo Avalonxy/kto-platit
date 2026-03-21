@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Lottie from 'lottie-react';
 import { LOTTIE_THINKING, LOTTIE_CELEBRATION, CHOOSING_REVEAL_DURATION } from '../constants';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import type { Participant } from '../types';
 
 type Phase = 'thinking' | 'reveal';
@@ -18,14 +19,18 @@ export function ChoosingOverlay({ visible, phase, winner, onRevealEnd }: Props) 
 
   useEffect(() => {
     let cancelled = false;
-    fetch(LOTTIE_THINKING)
+    fetchWithTimeout(LOTTIE_THINKING, { timeout: 5000 })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (!cancelled) setThinkingData(data); })
-      .catch(() => {});
-    fetch(LOTTIE_CELEBRATION)
+      .catch((err) => {
+        console.error('Failed to load thinking animation:', err);
+      });
+    fetchWithTimeout(LOTTIE_CELEBRATION, { timeout: 5000 })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (!cancelled) setCelebrationData(data); })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('Failed to load celebration animation:', err);
+      });
     return () => { cancelled = true; };
   }, []);
 

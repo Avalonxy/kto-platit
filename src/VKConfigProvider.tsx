@@ -19,7 +19,9 @@ export function VKConfigProviderWrapper({ children }: { children: ReactNode }) {
           setAppearance(data.appearance);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        console.error('Failed to get VK config:', err);
+      });
 
     const handler = (event: unknown) => {
       const e = event as { detail?: { type?: string; data?: { appearance?: AppearanceType } } };
@@ -29,7 +31,13 @@ export function VKConfigProviderWrapper({ children }: { children: ReactNode }) {
       }
     };
     bridge.subscribe(handler);
-    return () => bridge.unsubscribe(handler);
+    return () => {
+      try {
+        bridge.unsubscribe(handler);
+      } catch (err) {
+        console.error('Failed to unsubscribe from VK bridge:', err);
+      }
+    };
   }, []);
 
   return (

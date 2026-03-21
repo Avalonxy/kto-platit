@@ -68,16 +68,20 @@ export function HomePanel({ id, onResult }: Props) {
     } catch {}
   }, []);
 
-  // Сохранение участников в localStorage при изменении
+  // Сохранение участников в localStorage при изменении с debounce
   useEffect(() => {
-    try {
-      const success = trySetLocalStorage('kto-platit_participants', JSON.stringify(participants));
-      if (!success) {
-        console.warn('Failed to save participants to localStorage - quota exceeded or unavailable');
+    const timer = setTimeout(() => {
+      try {
+        const success = trySetLocalStorage('kto-platit_participants', JSON.stringify(participants));
+        if (!success) {
+          console.warn('Failed to save participants to localStorage - quota exceeded or unavailable');
+        }
+      } catch (err) {
+        console.error('Error saving participants:', err);
       }
-    } catch (err) {
-      console.error('Error saving participants:', err);
-    }
+    }, 500); // Задержка 500ms для debounce
+
+    return () => clearTimeout(timer);
   }, [participants]);
 
   const displayTitle = scenario.id === 'custom' ? customTitle || 'Свой вариант' : scenario.title;

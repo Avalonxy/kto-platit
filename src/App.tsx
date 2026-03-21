@@ -115,11 +115,10 @@ export default function App() {
           const viewerId = launchParams?.vk_user_id?.trim() ?? null;
           const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
           const noVerification = participantVkIds.length === 0;
+          // Allow viewing if: not in VK, or no verification required, or user is in participants list
           const canView =
-            !inVK ||
-            !viewerId ||
-            (noVerification ? false : participantVkIds.includes(viewerId));
-           if (canView) {
+            !inVK || noVerification || (!!viewerId && participantVkIds.includes(viewerId));
+          if (canView) {
             setResultAccessDenied(false);
             setResultData(last);
             setActivePanel('result');

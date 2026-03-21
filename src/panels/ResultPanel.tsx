@@ -5,6 +5,8 @@ import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import { LOTTIE_CONFETTI, CONFETTI_DURATION_MS } from '../constants';
 import { buildShareResultLinkById } from '../utils/shareResult';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+import { trySetLocalStorage } from '../utils/storageGuard';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
@@ -212,7 +214,7 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
   useEffect(() => {
     if (result) {
       try {
-        localStorage.setItem('kto-platit_has_drawn', '1');
+        trySetLocalStorage('kto-platit_has_drawn', '1');
       } catch {}
       setConfettiVisible(true);
     }
@@ -221,10 +223,12 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
   useEffect(() => {
     if (!result) return;
     let cancelled = false;
-    fetch(LOTTIE_CONFETTI)
+    fetchWithTimeout(LOTTIE_CONFETTI, { timeout: 5000 })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (!cancelled && data) setConfettiData(data); })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('Failed to load confetti animation:', err);
+      });
     return () => { cancelled = true; };
   }, [result]);
 
@@ -246,27 +250,23 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
       (bridge.send as (method: string) => Promise<{ result?: boolean }>)('VKWebAppAddToFavorites')
         .then((data) => {
           if (data?.result) {
-            try {
-              localStorage.setItem(FAVORITES_STORAGE_KEY, 'added');
-            } catch {}
+            trySetLocalStorage(FAVORITES_STORAGE_KEY, 'added');
             setFavoritesStatus('added');
           }
         })
-        .catch(() => {
-          try {
-            localStorage.setItem(FAVORITES_STORAGE_KEY, 'dismissed');
-          } catch {}
+        .catch((err) => {
+          console.error('Failed to add to favorites:', err);
+          trySetLocalStorage(FAVORITES_STORAGE_KEY, 'dismissed');
           setFavoritesStatus('dismissed');
         });
-    } catch {
+    } catch (err) {
+      console.error('Error in handleAddToFavorites:', err);
       setFavoritesStatus('dismissed');
     }
   }, []);
 
   const handleDismissFavorites = useCallback(() => {
-    try {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, 'dismissed');
-    } catch {}
+    trySetLocalStorage(FAVORITES_STORAGE_KEY, 'dismissed');
     setFavoritesStatus('dismissed');
   }, []);
 
