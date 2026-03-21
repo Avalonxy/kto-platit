@@ -17,6 +17,10 @@ export function getScenarioIdByTitle(title: string): string | undefined {
 }
 
 export const STORAGE_HISTORY_KEY = 'kto-platit-history';
+/** Список участников в VK WebApp Storage — синхронизация между устройствами одного пользователя ВК. */
+export const STORAGE_PARTICIPANTS_KEY = 'kto-platit-participants';
+/** Не подставлять «себя» из кэша после явного удаления (синхронно с VK Storage). */
+export const STORAGE_SUPPRESS_AUTO_ME_KEY = 'kto-platit-suppress-auto-me';
 /** Ключ для сохранения последнего результата (открытие по ссылке #result). */
 export const STORAGE_LAST_RESULT_KEY = 'kto-platit_last_result';
 export const MAX_HISTORY = 20;

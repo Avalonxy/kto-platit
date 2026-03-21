@@ -60,3 +60,6 @@ export const RATE_LIMIT_POST_RESULT = { limit: 30, windowSec: 60 };
 
 /** GET результата — 60 запросов в минуту на IP */
 export const RATE_LIMIT_GET_RESULT = { limit: 60, windowSec: 60 };
+
+/** POST списка участников — 60 запросов в минуту на IP */
+export const RATE_LIMIT_POST_PARTICIPANTS = { limit: 60, windowSec: 60 };

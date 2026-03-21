@@ -166,7 +166,7 @@ export default function App() {
       <SplitLayout>
         <SplitCol>
           <View activePanel={activePanel}>
-            <HomePanel id="home" onResult={openResult} />
+            <HomePanel id="home" launchParams={launchParams} onResult={openResult} />
             <ResultPanel
               id="result"
               result={resultData}

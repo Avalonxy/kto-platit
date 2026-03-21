@@ -10,6 +10,7 @@ import {
   Input,
   IconButton,
   CellButton,
+  Spinner,
 } from '../ui';
 import { Icon28AddOutline, Icon24DeleteOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
@@ -18,20 +19,24 @@ import { addToHistory } from '../utils/history';
 import { chooseWeightedRandom } from '../utils/weightedChoice';
 import { ChoosingOverlay } from '../components/ChoosingOverlay';
 import { ScenarioIcon } from '../components/ScenarioIcon';
-import { trySetLocalStorage } from '../utils/storageGuard';
+import {
+  getStoredParticipants,
+  setStoredParticipants,
+  getSuppressAutoMeVkId,
+  setSuppressAutoMeVkId,
+} from '../utils/participantsStorage';
 import type { Participant, Scenario } from '../types';
-
-/** Если пользователь удалил себя из списка — не подставлять снова из VKWebAppStorage при повторном монтировании панели (например после возврата с результата). */
-const SUPPRESS_AUTO_ME_VK_ID_KEY = 'kto-platit_suppress_auto_me_vk_id';
 
 type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
 
 type Props = {
   id: string;
+  /** Параметры запуска VK — для синхронизации списка участников с Redis (как история). */
+  launchParams?: Record<string, string> | null;
   onResult: (scenario: Scenario, winner: Participant, participants: Participant[]) => void;
 };
 
-export function HomePanel({ id, onResult }: Props) {
+export function HomePanel({ id, launchParams = null, onResult }: Props) {
   const [scenario, setScenario] = useState<Scenario>(DEFAULT_SCENARIOS[0]);
   const [customTitle, setCustomTitle] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -47,6 +52,8 @@ export function HomePanel({ id, onResult }: Props) {
     participants: Participant[];
   } | null>(null);
   const [addedMe, setAddedMe] = useState(false);
+  /** Список участников подтянут из VK Storage / localStorage — до этого не пишем обратно, чтобы не затереть облако пустым массивом. */
+  const [participantsHydrated, setParticipantsHydrated] = useState(false);
   /** id текущего пользователя ВК (без префикса vk-) — чтобы отличать «удалил себя» от «удалил друга». */
   const selfVkIdRef = useRef<string | null>(null);
 
@@ -61,34 +68,51 @@ export function HomePanel({ id, onResult }: Props) {
       .catch(() => {});
   }, []);
 
-  // Загрузка участников из localStorage при mount
+  // Загрузка: сначала ждём launchParams во ВК (до таймаута), затем сервер → VK Storage → localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('kto-platit_participants');
-      if (saved) {
-        const parsed = JSON.parse(saved) as Participant[];
-        if (Array.isArray(parsed)) {
-          setParticipants(parsed);
-        }
-      }
-    } catch {}
-  }, []);
+    let cancelled = false;
+    const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
 
-  // Сохранение участников в localStorage при изменении с debounce
+    const load = (params: Record<string, string> | null) => {
+      void getStoredParticipants(params).then((list) => {
+        if (!cancelled) {
+          setParticipants(list);
+          setParticipantsHydrated(true);
+        }
+      });
+    };
+
+    if (!inVK) {
+      load(launchParams ?? null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (launchParams?.sign) {
+      load(launchParams);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const tid = window.setTimeout(() => {
+      if (!cancelled) load(null);
+    }, 2500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
+  }, [launchParams]);
+
+  // Сохранение при изменении (debounce); только после гидрации, чтобы не затереть облако до чтения
   useEffect(() => {
+    if (!participantsHydrated) return;
     const timer = setTimeout(() => {
-      try {
-        const success = trySetLocalStorage('kto-platit_participants', JSON.stringify(participants));
-        if (!success) {
-          console.warn('Failed to save participants to localStorage - quota exceeded or unavailable');
-        }
-      } catch (err) {
-        console.error('Error saving participants:', err);
-      }
-    }, 500); // Задержка 500ms для debounce
-
+      void setStoredParticipants(participants, launchParams ?? null);
+    }, 500);
     return () => clearTimeout(timer);
-  }, [participants]);
+  }, [participants, participantsHydrated, launchParams]);
 
   const displayTitle = scenario.id === 'custom' ? customTitle || 'Свой вариант' : scenario.title;
 
@@ -97,22 +121,18 @@ export function HomePanel({ id, onResult }: Props) {
   }, []);
 
   // Кэш пользователя из VKWebAppStorage — при повторном заходе «себя» можно подставить сразу
-  // (но не если пользователь явно удалил себя — см. SUPPRESS_AUTO_ME_VK_ID_KEY)
+  // (но не если пользователь явно удалил себя — флаг синхронизируется через VK Storage между устройствами)
   useEffect(() => {
     const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
     if (!isInVK) return;
-    let suppressVkId: string | null = null;
-    try {
-      suppressVkId = localStorage.getItem(SUPPRESS_AUTO_ME_VK_ID_KEY);
-    } catch {
-      suppressVkId = null;
-    }
-    // VKWebAppStorageGet: keys — массив названий, ответ: { keys: [ { key, value } ] } (dev.vk.com/ru/bridge/VKWebAppStorageGet)
-    (bridge.send as (method: string, params: { keys: string[] }) => Promise<{ keys?: Array<{ key: string; value: string }> }>)(
-      'VKWebAppStorageGet',
-      { keys: ['kto_platit_user'] },
-    )
-      .then((res) => {
+    Promise.all([
+      getSuppressAutoMeVkId(),
+      (bridge.send as (method: string, params: { keys: string[] }) => Promise<{ keys?: Array<{ key: string; value: string }> }>)(
+        'VKWebAppStorageGet',
+        { keys: ['kto_platit_user'] },
+      ),
+    ])
+      .then(([suppressVkId, res]) => {
         const item = res?.keys?.find((k) => k.key === 'kto_platit_user')?.value;
         if (!item) return;
         try {
@@ -141,11 +161,7 @@ export function HomePanel({ id, onResult }: Props) {
       const vkId = participantId.replace(/^vk-/, '');
       if (selfVkIdRef.current != null && vkId === selfVkIdRef.current) {
         setAddedMe(false);
-        try {
-          trySetLocalStorage(SUPPRESS_AUTO_ME_VK_ID_KEY, vkId);
-        } catch {
-          /* ignore */
-        }
+        void setSuppressAutoMeVkId(vkId);
       }
     }
   }, []);
@@ -221,7 +237,7 @@ export function HomePanel({ id, onResult }: Props) {
     setChosenResult(null);
   }, [chosenResult, onResult]);
 
-  const canChoose = participants.length >= 2 && choosingPhase === 'idle';
+  const canChoose = participants.length >= 2 && choosingPhase === 'idle' && participantsHydrated;
 
   // VKWebAppGetUserInfo: добавить текущего пользователя (себя) в участники.
   const addMe = useCallback(async () => {
@@ -246,11 +262,7 @@ export function HomePanel({ id, onResult }: Props) {
           gender,
         });
         setAddedMe(true);
-        try {
-          localStorage.removeItem(SUPPRESS_AUTO_ME_VK_ID_KEY);
-        } catch {
-          /* ignore */
-        }
+        void setSuppressAutoMeVkId(null);
         try {
           (bridge.send as (method: string, params: { key: string; value: string }) => Promise<unknown>)(
             'VKWebAppStorageSet',
@@ -379,7 +391,13 @@ export function HomePanel({ id, onResult }: Props) {
             paddingBottom: 152,
           }}
         >
-          {participants.map((p) => (
+          {!participantsHydrated ? (
+            <Div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+              <Spinner size="regular" />
+            </Div>
+          ) : null}
+          {participantsHydrated &&
+            participants.map((p) => (
             <SimpleCell
               key={p.id}
               before={<Avatar src={p.photo} size={40} />}
@@ -417,25 +435,31 @@ export function HomePanel({ id, onResult }: Props) {
                 <Input
                   placeholder="Имя участника"
                   value={manualName}
+                  disabled={!participantsHydrated}
                   onChange={(e) => {
                     setManualName(e.target.value);
                     if (manualNameError) setManualNameError(null);
                   }}
-                  onKeyDown={(e) => e.key === 'Enter' && addManual()}
+                  onKeyDown={(e) => e.key === 'Enter' && participantsHydrated && addManual()}
                   status={manualNameError ? 'error' : undefined}
                   bottom={manualNameError || undefined}
                   maxLength={100}
                 />
               </div>
-              <IconButton onClick={addManual} aria-label="Добавить">
+              <IconButton onClick={addManual} disabled={!participantsHydrated} aria-label="Добавить">
                 <Icon28AddOutline />
               </IconButton>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-              <CellButton onClick={addMe} disabled={addedMe}>
+              <CellButton onClick={addMe} disabled={!participantsHydrated || addedMe}>
                 {addedMe ? 'Вы добавлены' : 'Добавить себя'}
               </CellButton>
-              <CellButton onClick={() => { if (!friendsLoading) void openFriendsPicker(); }}>
+              <CellButton
+                onClick={() => {
+                  if (!friendsLoading && participantsHydrated) void openFriendsPicker();
+                }}
+                disabled={!participantsHydrated || friendsLoading}
+              >
                 {friendsLoading ? 'Открываем список друзей...' : 'Добавить из друзей VK'}
               </CellButton>
               {friendsError && (
