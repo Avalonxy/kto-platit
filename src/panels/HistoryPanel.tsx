@@ -7,6 +7,16 @@ import { fetchHistory, type HistoryApiItem } from '../api/results';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { HistoryItem } from '../types';
 
+function getDisplayChar(name: string): string {
+  if (!name) return '?';
+  // Try to get first letter, skipping emoji
+  const firstChar = name.trim()[0];
+  if (firstChar && /\p{L}/u.test(firstChar)) return firstChar.toUpperCase();
+  // If no letter, find first letter in name
+  const match = name.match(/\p{L}/u);
+  return match ? match[0].toUpperCase() : '?';
+}
+
 type Props = {
   id: string;
   activePanel: string;
@@ -43,25 +53,28 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (activePanel !== 'history') return;
-    if (launchParams?.vk_user_id && launchParams?.sign) {
-      setLoading(true);
-      fetchHistory(launchParams)
-        .then((result) => {
-          if (result === null) {
-            setItems(getHistory());
-            (bridge.send as (method: string, params: object) => Promise<unknown>)(
-              'VKWebAppShowSnackbar',
-              { text: 'Не удалось загрузить историю с сервера, показана локальная' },
-            ).catch(() => {});
-          } else {
-            setItems(result.map(apiItemToHistoryItem));
-          }
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setItems(getHistory());
-    }
+    const loadHistory = async () => {
+      if (activePanel !== 'history') return;
+      if (launchParams?.vk_user_id && launchParams?.sign) {
+        setLoading(true);
+        const result = await fetchHistory(launchParams);
+        if (result === null) {
+          const localHistory = await getHistory();
+          setItems(localHistory);
+          (bridge.send as (method: string, params: object) => Promise<unknown>)(
+            'VKWebAppShowSnackbar',
+            { text: 'Не удалось загрузить историю с сервера, показана локальная' },
+          ).catch(() => {});
+        } else {
+          setItems(result.map(apiItemToHistoryItem));
+        }
+        setLoading(false);
+      } else {
+        const localHistory = await getHistory();
+        setItems(localHistory);
+      }
+    };
+    loadHistory();
   }, [activePanel, launchParams]);
 
   return (
@@ -83,15 +96,21 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
           items.map((item) => (
             <SimpleCell
               key={item.id}
-              before={<Avatar size={40}>{item.winner.name[0]}</Avatar>}
-              subtitle={`${item.participantNames.join(', ')} · ${formatDate(item.date)}`}
+              before={<Avatar size={40}>{getDisplayChar(item.winner.name)}</Avatar>}
+              subtitle={`${(() => {
+                const names = item.participantNames.join(', ');
+                if (names.length > 100) {
+                  return names.slice(0, 97) + '...';
+                }
+                return names;
+              })()} · ${formatDate(item.date)}`}
               onClick={() => onOpenResult?.(item)}
             >
               <span style={{ marginRight: 8, display: 'inline-flex', alignItems: 'center' }}>
                 <ScenarioIcon scenarioId={item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle)} size={24} />
               </span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', minWidth: 0 }}>
-                {item.scenarioTitle} → {item.winner.name}
+                {item.scenarioTitle} → {item.winner.name.length > 50 ? item.winner.name.slice(0, 47) + '...' : item.winner.name}
               </span>
             </SimpleCell>
           ))

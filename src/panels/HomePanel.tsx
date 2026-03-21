@@ -20,6 +20,16 @@ import { ChoosingOverlay } from '../components/ChoosingOverlay';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
+function getDisplayChar(name: string): string {
+  if (!name) return '?';
+  // Try to get first letter, skipping emoji
+  const firstChar = name.trim()[0];
+  if (firstChar && /\p{L}/u.test(firstChar)) return firstChar.toUpperCase();
+  // If no letter, find first letter in name
+  const match = name.match(/\p{L}/u);
+  return match ? match[0].toUpperCase() : '?';
+}
+
 type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
 
 type Props = {
@@ -32,6 +42,7 @@ export function HomePanel({ id, onResult }: Props) {
   const [customTitle, setCustomTitle] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [manualName, setManualName] = useState('');
+  const [manualNameError, setManualNameError] = useState<string | null>(null);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [choosingPhase, setChoosingPhase] = useState<ChoosingPhase>('idle');
@@ -41,6 +52,27 @@ export function HomePanel({ id, onResult }: Props) {
     winner: Participant;
     participants: Participant[];
   } | null>(null);
+  const [addedMe, setAddedMe] = useState(false);
+
+  // Загрузка участников из localStorage при mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('kto-platit_participants');
+      if (saved) {
+        const parsed = JSON.parse(saved) as Participant[];
+        if (Array.isArray(parsed)) {
+          setParticipants(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Сохранение участников в localStorage при изменении
+  useEffect(() => {
+    try {
+      localStorage.setItem('kto-platit_participants', JSON.stringify(participants));
+    } catch {}
+  }, [participants]);
 
   const displayTitle = scenario.id === 'custom' ? customTitle || 'Свой вариант' : scenario.title;
 
@@ -77,11 +109,29 @@ export function HomePanel({ id, onResult }: Props) {
 
   const removeParticipant = useCallback((participantId: string) => {
     setParticipants((prev) => prev.filter((p) => p.id !== participantId));
+    if (participantId.startsWith('vk-')) {
+      setAddedMe(false);
+    }
   }, []);
 
   const addManual = useCallback(() => {
     const name = manualName.trim();
-    if (!name) return;
+    if (!name) {
+      setManualNameError('Введите имя участника');
+      return;
+    }
+    if (!/[a-zA-Zа-яА-Я]/.test(name)) {
+      setManualNameError('Имя должно содержать хотя бы одну букву');
+      return;
+    }
+    if (name.length > 100) {
+      setManualNameError('Имя слишком длинное (макс. 100 символов)');
+      return;
+    }
+    if (participants.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+      setManualNameError('Участник с таким именем уже добавлен');
+      return;
+    }
     addParticipant({
       id: `manual-${Date.now()}-${name}`,
       name,
@@ -92,6 +142,10 @@ export function HomePanel({ id, onResult }: Props) {
 
   const chooseRandom = useCallback(() => {
     if (participants.length < 2) return;
+    if (scenario.id === 'custom' && !customTitle.trim()) {
+      setFriendsError('Введите название сценария');
+      return;
+    }
     setChoosingPhase('thinking');
     setChosenWinner(null);
     setChosenResult(null);
@@ -99,9 +153,9 @@ export function HomePanel({ id, onResult }: Props) {
     const finalScenario: Scenario =
       scenario.id === 'custom' ? { ...scenario, title: displayTitle } : scenario;
 
-    setTimeout(() => {
-      const winner = chooseWeightedRandom(participants);
-      addToHistory({
+    setTimeout(async () => {
+      const winner = await chooseWeightedRandom(participants);
+      await addToHistory({
         scenarioTitle: displayTitle,
         scenarioEmoji: finalScenario.emoji,
         scenarioId: finalScenario.id,
@@ -114,9 +168,9 @@ export function HomePanel({ id, onResult }: Props) {
     }, CHOOSING_THINK_DURATION);
   }, [participants, scenario, displayTitle]);
 
-  const handleRevealEnd = useCallback(() => {
+  const handleRevealEnd = useCallback(async () => {
     if (chosenResult) {
-      onResult(chosenResult.scenario, chosenResult.winner, chosenResult.participants);
+      await onResult(chosenResult.scenario, chosenResult.winner, chosenResult.participants);
     }
     setChoosingPhase('idle');
     setChosenWinner(null);
@@ -144,6 +198,7 @@ export function HomePanel({ id, onResult }: Props) {
           photo: u.photo_200,
           isFromVk: true,
         });
+        setAddedMe(true);
         try {
           (bridge.send as (method: string, params: { key: string; value: string }) => Promise<unknown>)(
             'VKWebAppStorageSet',
@@ -254,6 +309,7 @@ export function HomePanel({ id, onResult }: Props) {
               placeholder="Например: Кто моет посуду?"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
+              maxLength={100}
             />
           </Div>
         )}
@@ -263,34 +319,46 @@ export function HomePanel({ id, onResult }: Props) {
         header={<Header mode="secondary">Участники ({participants.length})</Header>}
         description="Минимум 2 человека"
       >
-        {participants.map((p) => (
-          <SimpleCell
-            key={p.id}
-            before={p.photo ? <Avatar src={p.photo} size={40} /> : <Avatar size={40}>{p.name[0]}</Avatar>}
-            after={
-              <IconButton onClick={() => removeParticipant(p.id)} aria-label="Удалить">
-                <Icon24DeleteOutline />
-              </IconButton>
-            }
-          >
-            {p.name}
-          </SimpleCell>
-        ))}
+        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+          {participants.map((p) => (
+            <SimpleCell
+              key={p.id}
+              before={p.photo ? <Avatar src={p.photo} size={40} /> : <Avatar size={40}>{getDisplayChar(p.name)}</Avatar>}
+              after={
+                <IconButton onClick={() => {
+                  if (window.confirm('Удалить участника?')) {
+                    removeParticipant(p.id);
+                  }
+                }} aria-label="Удалить">
+                  <Icon24DeleteOutline />
+                </IconButton>
+              }
+            >
+              {p.name}
+            </SimpleCell>
+          ))}
+        </div>
         <Div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <Input
               placeholder="Имя участника"
               value={manualName}
-              onChange={(e) => setManualName(e.target.value)}
+              onChange={(e) => {
+                setManualName(e.target.value);
+                if (manualNameError) setManualNameError(null);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && addManual()}
+              status={manualNameError ? 'error' : undefined}
+              bottom={manualNameError || undefined}
+              maxLength={100}
             />
             <IconButton onClick={addManual} aria-label="Добавить">
               <Icon28AddOutline />
             </IconButton>
           </div>
         </Div>
-        <CellButton onClick={addMe}>
-          Добавить себя
+        <CellButton onClick={addMe} disabled={addedMe}>
+          {addedMe ? 'Вы добавлены' : 'Добавить себя'}
         </CellButton>
         <CellButton onClick={() => { if (!friendsLoading) void openFriendsPicker(); }}>
           {friendsLoading ? 'Открываем список друзей...' : 'Добавить из друзей VK'}

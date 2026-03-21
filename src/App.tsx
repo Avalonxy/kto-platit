@@ -123,7 +123,7 @@ export default function App() {
         return;
       }
       if (raw === 'result') {
-        const last = getLastResult();
+        const last = await getLastResult();
         if (last) {
           setResultData(last);
           setActivePanel('result');
@@ -145,16 +145,16 @@ export default function App() {
     return () => bridge.unsubscribe(handler);
   }, []);
 
-  const openResult = (scenario: Scenario, winner: Participant, participants: Participant[]) => {
+  const openResult = async (scenario: Scenario, winner: Participant, participants: Participant[]) => {
     const data = { scenario, winner, participants };
     setResultData(data);
-    saveLastResult(data);
+    await saveLastResult(data);
     setActivePanel('result');
     const vkUserId = launchParams?.vk_user_id ?? null;
-    createResult(scenario, winner, participants, vkUserId).then((res) => {
+    createResult(scenario, winner, participants, vkUserId).then(async (res) => {
       if (res?.id) {
         setResultData((prev) => (prev ? { ...prev, serverId: res!.id } : null));
-        updateLastHistoryItemServerId(res.id);
+        await updateLastHistoryItemServerId(res.id);
       }
     });
   };

@@ -10,3 +10,8 @@
   margin-right: auto;
   box-sizing: border-box;
 }
+
+/* Hover effect for Tabbar items */
+.vkuiTabbarItem:hover {
+  opacity: 0.8;
+}

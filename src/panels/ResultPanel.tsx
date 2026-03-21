@@ -8,8 +8,15 @@ import { buildShareResultLink, buildShareResultLinkById } from '../utils/shareRe
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
-const FAVORITES_STORAGE_KEY = 'kto-platit_favorites';
-type FavoritesStatus = 'added' | 'dismissed' | null;
+function getDisplayChar(name: string): string {
+  if (!name) return '?';
+  // Try to get first letter, skipping emoji
+  const firstChar = name.trim()[0];
+  if (firstChar && /\p{L}/u.test(firstChar)) return firstChar.toUpperCase();
+  // If no letter, find first letter in name
+  const match = name.match(/\p{L}/u);
+  return match ? match[0].toUpperCase() : '?';
+}
 
 type ResultData = {
   scenario: Scenario;
@@ -23,6 +30,9 @@ type Props = {
   result: ResultData;
   onBack: () => void;
 };
+
+const FAVORITES_STORAGE_KEY = 'kto-platit_favorites';
+type FavoritesStatus = 'added' | 'dismissed' | null;
 
 const CTA = '\n\n———\n\nКто следующий? Решайте споры без споров — мини-приложение «Кто платит?»: друзья из VK, один тап, честный жребий. Попробуй 👇';
 
@@ -293,7 +303,7 @@ export function ResultPanel({ id, result, onBack }: Props) {
 
   return (
     <Panel id={id}>
-      <PanelHeader before={<Button onClick={onBack}>Назад</Button>}>
+      <PanelHeader before={<Button mode="tertiary" onClick={onBack}>Назад</Button>}>
         Результат
       </PanelHeader>
 
@@ -324,7 +334,7 @@ export function ResultPanel({ id, result, onBack }: Props) {
             }}
           >
             <Avatar size={96} src={winner.photo}>
-              {winner.name[0]}
+              {getDisplayChar(winner.name)}
             </Avatar>
             {confettiData && confettiVisible && (
               <div
@@ -354,9 +364,13 @@ export function ResultPanel({ id, result, onBack }: Props) {
               minWidth: 0,
               wordBreak: 'break-word',
               overflowWrap: 'break-word',
+              maxWidth: '100%',
+              overflow: 'hidden',
             }}
           >
-            <Header mode="primary">{winner.name}</Header>
+            <div style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Header mode="primary">{winner.name}</Header>
+            </div>
           </div>
           <p
             style={{
@@ -369,7 +383,14 @@ export function ResultPanel({ id, result, onBack }: Props) {
               paddingRight: 8,
             }}
           >
-            Участники: {participants.map((p) => p.name).join(', ')}
+            Участники: {(() => {
+              const names = participants.map((p) => p.name);
+              const joined = names.join(', ');
+              if (joined.length > 100) {
+                return joined.slice(0, 97) + '...';
+              }
+              return joined;
+            })()}
           </p>
         </Div>
 

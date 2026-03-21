@@ -31,16 +31,62 @@ function isValidScenario(s: unknown): s is Scenario {
   );
 }
 
-export function saveLastResult(data: LastResultData): void {
+export async function saveLastResult(data: LastResultData): Promise<void> {
+  const value = JSON.stringify(data);
   try {
-    localStorage.setItem(STORAGE_LAST_RESULT_KEY, JSON.stringify(data));
+    // Try VKWebAppStorage first
+    const bridge = (await import('@vkontakte/vk-bridge')).default;
+    const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (isInVK) {
+      await (bridge.send as (method: string, params: { key: string; value: string }) => Promise<unknown>)(
+        'VKWebAppStorageSet',
+        { key: STORAGE_LAST_RESULT_KEY, value },
+      );
+      return;
+    }
+    // Fallback to localStorage
+    localStorage.setItem(STORAGE_LAST_RESULT_KEY, value);
   } catch {
     // ignore
   }
 }
 
-export function getLastResult(): LastResultData | null {
+export async function getLastResult(): Promise<LastResultData | null> {
   try {
+    // Try VKWebAppStorage first
+    const bridge = (await import('@vkontakte/vk-bridge')).default;
+    const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (isInVK) {
+      try {
+        const res = await (bridge.send as (method: string, params: { keys: string[] }) => Promise<{ keys?: Array<{ key: string; value: string }> }>)(
+          'VKWebAppStorageGet',
+          { keys: [STORAGE_LAST_RESULT_KEY] },
+        );
+        const item = res?.keys?.find((k) => k.key === STORAGE_LAST_RESULT_KEY)?.value;
+        if (item) {
+          const parsed = JSON.parse(item) as unknown;
+          if (
+            typeof parsed !== 'object' ||
+            parsed === null ||
+            !('scenario' in parsed) ||
+            !('winner' in parsed) ||
+            !('participants' in parsed)
+          )
+            return null;
+          const { scenario, winner, participants } = parsed as {
+            scenario: unknown;
+            winner: unknown;
+            participants: unknown;
+          };
+          if (!isValidScenario(scenario) || !isValidParticipant(winner)) return null;
+          const list = Array.isArray(participants) ? participants : [];
+          if (list.length === 0) return null;
+          if (!list.every(isValidParticipant)) return null;
+          return { scenario, winner, participants: list };
+        }
+      } catch {}
+    }
+    // Fallback to localStorage
     const raw = localStorage.getItem(STORAGE_LAST_RESULT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
