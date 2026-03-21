@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Lottie, { type LottieRefCurrentProps } from 'lottie-react';
 import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '../ui';
 import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
@@ -54,7 +54,7 @@ function buildShareMessage(
 
   if (id === 'coffee') {
     const variants = [
-      `☕ Кофейная рулетка крутилась — и судьба указала на того, кто сегодня раскошелится за капучино!\n\nПоздравляем: ${winner.name} 🎉\n\nВ игре были: ${names}`,
+      `☕ Кофейная рулетка крутилась — и жребий указал на того, кто сегодня раскошелится за капучино!\n\nПоздравляем: ${winner.name} 🎉\n\nВ игре были: ${names}`,
       `☕ Кто платит за кофе? Жребий сказал: ${winner.name} — сегодня капучино на него!\n\nВ кругу: ${names}`,
       `☕ Рулетка раскрутилась — платёж за кофе падает на ${winner.name}. Остальным только радоваться 😄\n\nУчастники: ${names}`,
     ];
@@ -88,7 +88,7 @@ function buildShareMessage(
     const variants = [
       `🍽️ Голодные желудки доверили заказ одному человеку. Кто у руля меню? ${winner.name}!\n\nЖдали решения: ${names}`,
       `🍽️ Кто заказывает еду? Жребий сказал: ${winner.name} — меню в его руках!\n\nВ кругу: ${names}`,
-      `🍽️ Судьба указала на шефа вечера: ${winner.name} выбирает, что едим. Остальным — только аппетит нагуливать 😄\n\nУчастники: ${names}`,
+      `🍽️ Жребий указал на шефа вечера: ${winner.name} выбирает, что едим. Остальным — только аппетит нагуливать 😄\n\nУчастники: ${names}`,
     ];
     return pick(variants) + CTA;
   }
@@ -107,7 +107,7 @@ function buildShareMessage(
   if (/\b(платит|оплач|кофе|капучино|счёт|раскошел|деньги|скинуться)\b/.test(title)) {
     return (
       `💰 Жеребьёвка по финансам: «${scenario.title}»\n\n` +
-      `Судьба указала: сегодня платит ${winner.name}!\n\n` +
+      `Жребий указал: сегодня платит ${winner.name}!\n\n` +
       `В кругу: ${names}` + CTA
     );
   }
@@ -176,7 +176,7 @@ function buildShareMessage(
   }
   if (/\b(позвонит|звонок|связь|напишет)\b/.test(title)) {
     return (
-      `📱 «${scenario.title}» — судьба указала!\n\n` +
+      `📱 «${scenario.title}» — жребий указал!\n\n` +
       `Этому человеку звонить/писать: ${winner.name}\n\n` +
       `В списке: ${names}` + CTA
     );
@@ -300,7 +300,10 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
   }
 
   const { scenario, winner, participants } = result;
-  const shareMessage = buildShareMessage(scenario, winner, participants);
+  const shareMessage = useMemo(
+    () => buildShareMessage(scenario, winner, participants),
+    [scenario, winner, participants],
+  );
 
   const handleShare = async () => {
     if (!result.serverId) return;

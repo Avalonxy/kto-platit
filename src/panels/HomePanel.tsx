@@ -337,17 +337,27 @@ export function HomePanel({ id, onResult }: Props) {
         header={<Header mode="secondary">Участники ({participants.length})</Header>}
         description="Минимум 2 человека"
       >
-        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+        <div
+          style={{
+            maxHeight: 360,
+            overflowY: 'auto',
+            position: 'relative',
+            paddingBottom: 152,
+          }}
+        >
           {participants.map((p) => (
             <SimpleCell
               key={p.id}
               before={p.photo ? <Avatar src={p.photo} size={40} /> : <Avatar size={40}>{getDisplayChar(p.name)}</Avatar>}
               after={
-                <IconButton onClick={() => {
-                  if (window.confirm('Удалить участника?')) {
-                    removeParticipant(p.id);
-                  }
-                }} aria-label="Удалить">
+                <IconButton
+                  onClick={() => {
+                    if (window.confirm('Удалить участника?')) {
+                      removeParticipant(p.id);
+                    }
+                  }}
+                  aria-label="Удалить"
+                >
                   <Icon24DeleteOutline />
                 </IconButton>
               }
@@ -355,37 +365,53 @@ export function HomePanel({ id, onResult }: Props) {
               {p.name}
             </SimpleCell>
           ))}
-        </div>
-        <Div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Input
-              placeholder="Имя участника"
-              value={manualName}
-              onChange={(e) => {
-                setManualName(e.target.value);
-                if (manualNameError) setManualNameError(null);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && addManual()}
-              status={manualNameError ? 'error' : undefined}
-              bottom={manualNameError || undefined}
-              maxLength={100}
-            />
-            <IconButton onClick={addManual} aria-label="Добавить">
-              <Icon28AddOutline />
-            </IconButton>
+
+          <div
+            style={{
+              position: 'sticky',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'var(--vkui--color_background, #fff)',
+              borderTop: '1px solid var(--vkui--color_separator_secondary)',
+              padding: '10px 16px 12px',
+              zIndex: 2,
+            }}
+          >
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <Input
+                  placeholder="Имя участника"
+                  value={manualName}
+                  onChange={(e) => {
+                    setManualName(e.target.value);
+                    if (manualNameError) setManualNameError(null);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && addManual()}
+                  status={manualNameError ? 'error' : undefined}
+                  bottom={manualNameError || undefined}
+                  maxLength={100}
+                />
+              </div>
+              <IconButton onClick={addManual} aria-label="Добавить">
+                <Icon28AddOutline />
+              </IconButton>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+              <CellButton onClick={addMe} disabled={addedMe}>
+                {addedMe ? 'Вы добавлены' : 'Добавить себя'}
+              </CellButton>
+              <CellButton onClick={() => { if (!friendsLoading) void openFriendsPicker(); }}>
+                {friendsLoading ? 'Открываем список друзей...' : 'Добавить из друзей VK'}
+              </CellButton>
+              {friendsError && (
+                <div style={{ fontSize: 13, color: 'var(--vkui--color_text_secondary)' }}>
+                  {friendsError}
+                </div>
+              )}
+            </div>
           </div>
-        </Div>
-        <CellButton onClick={addMe} disabled={addedMe}>
-          {addedMe ? 'Вы добавлены' : 'Добавить себя'}
-        </CellButton>
-        <CellButton onClick={() => { if (!friendsLoading) void openFriendsPicker(); }}>
-          {friendsLoading ? 'Открываем список друзей...' : 'Добавить из друзей VK'}
-        </CellButton>
-        {friendsError && (
-          <Div style={{ padding: '4px 16px 0', fontSize: 13, color: 'var(--vkui--color_text_secondary)' }}>
-            {friendsError}
-          </Div>
-        )}
+        </div>
       </Group>
 
       <Group>
