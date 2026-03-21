@@ -3,6 +3,7 @@ export type Participant = {
   name: string;
   photo?: string;
   isFromVk?: boolean;
+  gender?: 'male' | 'female' | 'unknown';
 };
 
 export type Scenario = {

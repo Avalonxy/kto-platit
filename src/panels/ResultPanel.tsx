@@ -10,16 +10,6 @@ import { trySetLocalStorage } from '../utils/storageGuard';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
-function getDisplayChar(name: string): string {
-  if (!name) return '?';
-  // Try to get first letter, skipping emoji
-  const firstChar = name.trim()[0];
-  if (firstChar && /\p{L}/u.test(firstChar)) return firstChar.toUpperCase();
-  // If no letter, find first letter in name
-  const match = name.match(/\p{L}/u);
-  return match ? match[0].toUpperCase() : '?';
-}
-
 type ResultData = {
   scenario: Scenario;
   winner: Participant;
@@ -44,6 +34,18 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function getPronouns(winner: Participant) {
+  const gender = winner.gender ?? 'unknown';
+  const isFemale = gender === 'female';
+  return {
+    subject: isFemale ? 'она' : 'он',
+    object: isFemale ? 'её' : 'него',
+    possessive: isFemale ? 'её' : 'его',
+    chosen: isFemale ? 'выбрана' : 'выбран',
+    doing: isFemale ? 'делает' : 'делает',
+  };
+}
+
 function buildShareMessage(
   scenario: Scenario,
   winner: Participant,
@@ -53,9 +55,10 @@ function buildShareMessage(
   const id = scenario.id;
 
   if (id === 'coffee') {
+    const pronoun = getPronouns(winner);
     const variants = [
       `☕ Кофейная рулетка крутилась — и жребий указал на того, кто сегодня раскошелится за капучино!\n\nПоздравляем: ${winner.name} 🎉\n\nВ игре были: ${names}`,
-      `☕ Кто платит за кофе? Жребий сказал: ${winner.name} — сегодня капучино на него!\n\nВ кругу: ${names}`,
+      `☕ Кто платит за кофе? Жребий сказал: ${winner.name} — сегодня капучино на ${pronoun.object}!\n\nВ кругу: ${names}`,
       `☕ Рулетка раскрутилась — платёж за кофе падает на ${winner.name}. Остальным только радоваться 😄\n\nУчастники: ${names}`,
     ];
     return pick(variants) + CTA;
@@ -63,39 +66,43 @@ function buildShareMessage(
   if (id === 'film') {
     const variants = [
       `🎬 Кинорулетка вынесла вердикт: выбор фильма на вечер в надёжных руках!\n\nСегодня за контентом следит: ${winner.name}\n\nУчастники голосования: ${names}`,
-      `🎬 Кто выбирает фильм? Судьба указала: ${winner.name} — вечерний плейлист в надёжных руках!\n\nВ команде: ${names}`,
+      `🎬 Кто выбирает фильм? Жребий указал: ${winner.name} — вечерний плейлист в надёжных руках!\n\nВ команде: ${names}`,
       `🎬 Жребий решён: за вечерний контент отвечает ${winner.name}. Остальным — расслабиться и смотреть.\n\nУчастники: ${names}`,
     ];
     return pick(variants) + CTA;
   }
   if (id === 'driver') {
+    const pronoun = getPronouns(winner);
     const variants = [
       `🚙 Ключи от руля вручены судьбой! Сегодня за рулём — ${winner.name}.\n\nОстальным — расслабиться и наслаждаться видом из окна.\n\nВ машине: ${names}`,
-      `🚙 Кто за рулём? Жребий выпал на ${winner.name} — ключи его, остальные в пассажиры!\n\nВ поездке: ${names}`,
+      `🚙 Кто за рулём? Жребий выпал на ${winner.name} — ключи ${pronoun.possessive}, остальные в пассажиры!\n\nВ поездке: ${names}`,
       `🚙 Рулетка решила: за руль садится ${winner.name}. Остальным — удобно устроиться и наслаждаться дорогой.\n\nВ машине: ${names}`,
     ];
     return pick(variants) + CTA;
   }
   if (id === 'duty') {
+    const pronoun = getPronouns(winner);
     const variants = [
       `📌 Дежурный назначен честным жребием. Сегодня в ответе за порядок — ${winner.name}!\n\nСостав: ${names}`,
-      `📌 Кто дежурит? Жребий указал: ${winner.name} — сегодня он у руля порядка!\n\nВ команде: ${names}`,
+      `📌 Кто дежурит? Жребий указал: ${winner.name} — сегодня ${pronoun.subject} у руля порядка!\n\nВ команде: ${names}`,
       `📌 Рулетка выпала: дежурный на сегодня — ${winner.name}. Остальным можно расслабиться 😄\n\nСостав: ${names}`,
     ];
     return pick(variants) + CTA;
   }
   if (id === 'order') {
+    const pronoun = getPronouns(winner);
     const variants = [
       `🍽️ Голодные желудки доверили заказ одному человеку. Кто у руля меню? ${winner.name}!\n\nЖдали решения: ${names}`,
-      `🍽️ Кто заказывает еду? Жребий сказал: ${winner.name} — меню в его руках!\n\nВ кругу: ${names}`,
+      `🍽️ Кто заказывает еду? Жребий сказал: ${winner.name} — меню в ${pronoun.possessive} руках!\n\nВ кругу: ${names}`,
       `🍽️ Жребий указал на шефа вечера: ${winner.name} выбирает, что едим. Остальным — только аппетит нагуливать 😄\n\nУчастники: ${names}`,
     ];
     return pick(variants) + CTA;
   }
   if (id === 'music') {
+    const pronoun = getPronouns(winner);
     const variants = [
       `🎧 Диджей на вечер выбран! Пульт и плейлист в руках у ${winner.name}.\n\nВ команде: ${names}`,
-      `🎧 Кто ставит музыку? Рулетка указала: ${winner.name} — пульт его, уши наши!\n\nУчастники: ${names}`,
+      `🎧 Кто ставит музыку? Жребий указал: ${winner.name} — пульт ${pronoun.possessive}, уши наши!\n\nУчастники: ${names}`,
       `🎧 Жребий выпал: за саундтрек вечера отвечает ${winner.name}. Остальным — только слушать и кайфовать.\n\nВ команде: ${names}`,
     ];
     return pick(variants) + CTA;
@@ -352,9 +359,7 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
               margin: '0 auto 12px',
             }}
           >
-            <Avatar size={96} src={winner.photo}>
-              {getDisplayChar(winner.name)}
-            </Avatar>
+            <Avatar size={96} src={winner.photo} />
             {confettiData && confettiVisible && (
               <div
                 style={{

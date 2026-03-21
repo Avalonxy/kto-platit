@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Panel,
   Header,
@@ -21,15 +21,8 @@ import { ScenarioIcon } from '../components/ScenarioIcon';
 import { trySetLocalStorage } from '../utils/storageGuard';
 import type { Participant, Scenario } from '../types';
 
-function getDisplayChar(name: string): string {
-  if (!name) return '?';
-  // Try to get first letter, skipping emoji
-  const firstChar = name.trim()[0];
-  if (firstChar && /\p{L}/u.test(firstChar)) return firstChar.toUpperCase();
-  // If no letter, find first letter in name
-  const match = name.match(/\p{L}/u);
-  return match ? match[0].toUpperCase() : '?';
-}
+/** Если пользователь удалил себя из списка — не подставлять снова из VKWebAppStorage при повторном монтировании панели (например после возврата с результата). */
+const SUPPRESS_AUTO_ME_VK_ID_KEY = 'kto-platit_suppress_auto_me_vk_id';
 
 type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
 
@@ -54,6 +47,19 @@ export function HomePanel({ id, onResult }: Props) {
     participants: Participant[];
   } | null>(null);
   const [addedMe, setAddedMe] = useState(false);
+  /** id текущего пользователя ВК (без префикса vk-) — чтобы отличать «удалил себя» от «удалил друга». */
+  const selfVkIdRef = useRef<string | null>(null);
+
+  // id текущего пользователя ВК — для отличия «удалил себя» от «удалил друга» (даже без кэша kto_platit_user)
+  useEffect(() => {
+    const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (!isInVK) return;
+    (bridge.send as (method: string) => Promise<{ id?: number }>)('VKWebAppGetUserInfo')
+      .then((data) => {
+        if (data?.id != null) selfVkIdRef.current = String(data.id);
+      })
+      .catch(() => {});
+  }, []);
 
   // Загрузка участников из localStorage при mount
   useEffect(() => {
@@ -91,9 +97,16 @@ export function HomePanel({ id, onResult }: Props) {
   }, []);
 
   // Кэш пользователя из VKWebAppStorage — при повторном заходе «себя» можно подставить сразу
+  // (но не если пользователь явно удалил себя — см. SUPPRESS_AUTO_ME_VK_ID_KEY)
   useEffect(() => {
     const isInVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
     if (!isInVK) return;
+    let suppressVkId: string | null = null;
+    try {
+      suppressVkId = localStorage.getItem(SUPPRESS_AUTO_ME_VK_ID_KEY);
+    } catch {
+      suppressVkId = null;
+    }
     // VKWebAppStorageGet: keys — массив названий, ответ: { keys: [ { key, value } ] } (dev.vk.com/ru/bridge/VKWebAppStorageGet)
     (bridge.send as (method: string, params: { keys: string[] }) => Promise<{ keys?: Array<{ key: string; value: string }> }>)(
       'VKWebAppStorageGet',
@@ -105,6 +118,11 @@ export function HomePanel({ id, onResult }: Props) {
         try {
           const u = JSON.parse(item) as { id?: number; first_name?: string; last_name?: string; photo_200?: string };
           if (u?.id) {
+            const idStr = String(u.id);
+            selfVkIdRef.current = idStr;
+            if (suppressVkId != null && idStr === suppressVkId) {
+              return;
+            }
             addParticipant({
               id: `vk-${u.id}`,
               name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Я',
@@ -120,7 +138,15 @@ export function HomePanel({ id, onResult }: Props) {
   const removeParticipant = useCallback((participantId: string) => {
     setParticipants((prev) => prev.filter((p) => p.id !== participantId));
     if (participantId.startsWith('vk-')) {
-      setAddedMe(false);
+      const vkId = participantId.replace(/^vk-/, '');
+      if (selfVkIdRef.current != null && vkId === selfVkIdRef.current) {
+        setAddedMe(false);
+        try {
+          trySetLocalStorage(SUPPRESS_AUTO_ME_VK_ID_KEY, vkId);
+        } catch {
+          /* ignore */
+        }
+      }
     }
   }, []);
 
@@ -206,17 +232,25 @@ export function HomePanel({ id, onResult }: Props) {
       return;
     }
     try {
-      type UserInfo = { id?: number; first_name?: string; last_name?: string; photo_200?: string };
+      type UserInfo = { id?: number; first_name?: string; last_name?: string; photo_200?: string; sex?: 1 | 2 | 0 | null };
       const data = await (bridge.send as (method: string) => Promise<UserInfo>)('VKWebAppGetUserInfo');
       const u = data;
       if (u?.id) {
+        selfVkIdRef.current = String(u.id);
+        const gender = u.sex === 2 ? 'male' : u.sex === 1 ? 'female' : 'unknown';
         addParticipant({
           id: `vk-${u.id}`,
           name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Я',
           photo: u.photo_200,
           isFromVk: true,
+          gender,
         });
         setAddedMe(true);
+        try {
+          localStorage.removeItem(SUPPRESS_AUTO_ME_VK_ID_KEY);
+        } catch {
+          /* ignore */
+        }
         try {
           (bridge.send as (method: string, params: { key: string; value: string }) => Promise<unknown>)(
             'VKWebAppStorageSet',
@@ -348,7 +382,7 @@ export function HomePanel({ id, onResult }: Props) {
           {participants.map((p) => (
             <SimpleCell
               key={p.id}
-              before={p.photo ? <Avatar src={p.photo} size={40} /> : <Avatar size={40}>{getDisplayChar(p.name)}</Avatar>}
+              before={<Avatar src={p.photo} size={40} />}
               after={
                 <IconButton
                   onClick={() => {

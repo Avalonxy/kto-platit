@@ -7,16 +7,6 @@ import { fetchHistory, type HistoryApiItem } from '../api/results';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { HistoryItem } from '../types';
 
-function getDisplayChar(name: string): string {
-  if (!name) return '?';
-  // Try to get first letter, skipping emoji
-  const firstChar = name.trim()[0];
-  if (firstChar && /\p{L}/u.test(firstChar)) return firstChar.toUpperCase();
-  // If no letter, find first letter in name
-  const match = name.match(/\p{L}/u);
-  return match ? match[0].toUpperCase() : '?';
-}
-
 type Props = {
   id: string;
   activePanel: string;
@@ -96,7 +86,7 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
           items.map((item) => (
             <SimpleCell
               key={item.id}
-              before={<Avatar size={40}>{getDisplayChar(item.winner.name)}</Avatar>}
+              before={<Avatar size={40} src={item.winner.photo} />}
               subtitle={`${(() => {
                 const names = item.participantNames.join(', ');
                 if (names.length > 100) {
