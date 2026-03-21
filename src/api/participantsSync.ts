@@ -1,7 +1,7 @@
 import type { Participant } from '../types';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
-type SlimRow = { id: string; name: string; f?: number; g?: string };
+type SlimRow = { id: string; name: string; f?: number; g?: string; ph?: string };
 
 function fromSlim(rows: SlimRow[]): Participant[] {
   return rows.map((x) => ({
@@ -9,16 +9,23 @@ function fromSlim(rows: SlimRow[]): Participant[] {
     name: x.name,
     isFromVk: Boolean(x.f),
     gender: x.g as Participant['gender'] | undefined,
+    photo: x.ph,
   }));
 }
 
 function toSlim(participants: Participant[]): SlimRow[] {
-  return participants.map((p) => ({
-    id: p.id,
-    name: p.name,
-    f: p.isFromVk ? 1 : 0,
-    g: p.gender,
-  }));
+  return participants.map((p) => {
+    const row: SlimRow = {
+      id: p.id,
+      name: p.name,
+      f: p.isFromVk ? 1 : 0,
+      g: p.gender,
+    };
+    if (p.photo && p.photo.length > 0 && p.photo.length <= 512) {
+      row.ph = p.photo;
+    }
+    return row;
+  });
 }
 
 /**

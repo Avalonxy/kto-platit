@@ -8,22 +8,29 @@ import { fetchParticipantsFromServer, saveParticipantsToServer } from '../api/pa
 const LOCAL_PARTICIPANTS_KEY = 'kto-platit_participants';
 const LOCAL_SUPPRESS_KEY = 'kto-platit_suppress_auto_me_vk_id';
 
-/** VK ограничивает длину значения (~2048 символов); без URL фото список помещается. */
+/** VK ограничивает длину значения (~2048 символов); при переполнении сначала убираем ph, затем хвост списка. */
 const VK_VALUE_MAX_LEN = 2000;
 
 function isVK(): boolean {
   return bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
 }
 
-type SlimRow = { id: string; name: string; f?: number; g?: Participant['gender'] };
+/** ph — URL фото (короче поля photo в JSON для Redis/VK Storage). */
+type SlimRow = { id: string; name: string; f?: number; g?: Participant['gender']; ph?: string };
 
 function toSlim(participants: Participant[]): SlimRow[] {
-  return participants.map((p) => ({
-    id: p.id,
-    name: p.name,
-    f: p.isFromVk ? 1 : 0,
-    g: p.gender,
-  }));
+  return participants.map((p) => {
+    const row: SlimRow = {
+      id: p.id,
+      name: p.name,
+      f: p.isFromVk ? 1 : 0,
+      g: p.gender,
+    };
+    if (p.photo && p.photo.length > 0 && p.photo.length <= 512) {
+      row.ph = p.photo;
+    }
+    return row;
+  });
 }
 
 function fromSlim(rows: SlimRow[]): Participant[] {
@@ -32,6 +39,7 @@ function fromSlim(rows: SlimRow[]): Participant[] {
     name: x.name,
     isFromVk: Boolean(x.f),
     gender: x.g,
+    photo: x.ph,
   }));
 }
 
@@ -52,15 +60,27 @@ function parseLocalParticipants(raw: string): Participant[] {
 type VkParticipantsPayload = { v: 1; i: SlimRow[] };
 
 function encodeVkPayload(participants: Participant[]): string {
-  let items = toSlim(participants);
-  let payload: VkParticipantsPayload = { v: 1, i: items };
-  let json = JSON.stringify(payload);
-  while (json.length > VK_VALUE_MAX_LEN && items.length > 0) {
-    items = items.slice(0, -1);
-    payload = { v: 1, i: items };
-    json = JSON.stringify(payload);
+  let includePhotos = true;
+  let count = participants.length;
+  while (count >= 0) {
+    const slice = count === 0 ? [] : participants.slice(0, count);
+    let rows = toSlim(slice);
+    if (!includePhotos) {
+      rows = rows.map((r) => {
+        const { ph: _p, ...rest } = r;
+        return rest;
+      });
+    }
+    const json = JSON.stringify({ v: 1, i: rows } satisfies VkParticipantsPayload);
+    if (json.length <= VK_VALUE_MAX_LEN) return json;
+    if (includePhotos) {
+      includePhotos = false;
+      continue;
+    }
+    if (count === 0) return JSON.stringify({ v: 1, i: [] });
+    count -= 1;
   }
-  return json;
+  return JSON.stringify({ v: 1, i: [] });
 }
 
 function decodeVkPayload(item: string): Participant[] | null {

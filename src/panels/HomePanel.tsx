@@ -25,6 +25,7 @@ import {
   getSuppressAutoMeVkId,
   setSuppressAutoMeVkId,
 } from '../utils/participantsStorage';
+import { hydrateVkParticipantPhotos } from '../utils/hydrateVkPhotos';
 import type { Participant, Scenario } from '../types';
 
 type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
@@ -74,9 +75,11 @@ export function HomePanel({ id, launchParams = null, onResult }: Props) {
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
 
     const load = (params: Record<string, string> | null) => {
-      void getStoredParticipants(params).then((list) => {
+      void getStoredParticipants(params).then(async (list) => {
+        if (cancelled) return;
+        const withPhotos = await hydrateVkParticipantPhotos(list);
         if (!cancelled) {
-          setParticipants(list);
+          setParticipants(withPhotos);
           setParticipantsHydrated(true);
         }
       });

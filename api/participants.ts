@@ -7,8 +7,9 @@ const PARTICIPANTS_TTL_SEC = 90 * 24 * 60 * 60; // 90 дней
 const MAX_PARTICIPANTS = 50;
 const MAX_NAME_LEN = 100;
 const MAX_ID_LEN = 96;
+const MAX_PHOTO_URL_LEN = 512;
 
-type SlimRow = { id: string; name: string; f?: number; g?: string };
+type SlimRow = { id: string; name: string; f?: number; g?: string; ph?: string };
 
 function corsHeaders(origin: string | null, methods: string): HeadersInit {
   const allowed =
@@ -61,12 +62,19 @@ function validateSlimRows(raw: unknown): SlimRow[] | null {
     if (o.name.length > MAX_NAME_LEN) return null;
     const g = o.g;
     if (g !== undefined && g !== 'male' && g !== 'female' && g !== 'unknown') return null;
-    out.push({
+    const ph = o.ph;
+    if (ph !== undefined) {
+      if (typeof ph !== 'string' || ph.length > MAX_PHOTO_URL_LEN) return null;
+      if (!/^https?:\/\//i.test(ph) || /[<>"']/.test(ph)) return null;
+    }
+    const row: SlimRow = {
       id: o.id,
       name: o.name,
       f: o.f === 1 ? 1 : o.f === 0 ? 0 : undefined,
       g: g as string | undefined,
-    });
+    };
+    if (ph !== undefined) row.ph = ph;
+    out.push(row);
   }
   return out;
 }
