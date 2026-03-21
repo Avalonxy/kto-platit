@@ -4,7 +4,7 @@ import { Panel, PanelHeader, Header, Group, Div, Button, Avatar } from '../ui';
 import { Icon24ShareOutline, Icon28StarsOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import { LOTTIE_CONFETTI, CONFETTI_DURATION_MS } from '../constants';
-import { buildShareResultLink, buildShareResultLinkById } from '../utils/shareResult';
+import { buildShareResultLinkById } from '../utils/shareResult';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { Participant, Scenario } from '../types';
 
@@ -28,6 +28,8 @@ type ResultData = {
 type Props = {
   id: string;
   result: ResultData;
+  /** Просмотр по ссылке, но пользователь не участник жеребьёвки — показать сообщение вместо результата. */
+  accessDenied?: boolean;
   onBack: () => void;
 };
 
@@ -201,7 +203,7 @@ function getFavoritesStatus(): FavoritesStatus {
   return null;
 }
 
-export function ResultPanel({ id, result, onBack }: Props) {
+export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
   const [favoritesStatus, setFavoritesStatus] = useState<FavoritesStatus>(getFavoritesStatus);
   const [confettiData, setConfettiData] = useState<object | null>(null);
   const [confettiVisible, setConfettiVisible] = useState(true);
@@ -271,11 +273,27 @@ export function ResultPanel({ id, result, onBack }: Props) {
   if (!result) {
     return (
       <Panel id={id}>
-        <PanelHeader>Результат</PanelHeader>
-        <Div>Нет данных</Div>
-        <Button size="l" stretched onClick={onBack}>
-          Назад
-        </Button>
+        <PanelHeader before={<Button onClick={onBack}>Назад</Button>}>
+          Результат
+        </PanelHeader>
+        <Group>
+          <Div
+            style={{
+              padding: '24px 16px',
+              textAlign: 'center',
+              color: 'var(--vkui--color_text_secondary)',
+              fontSize: 15,
+              lineHeight: 1.5,
+            }}
+          >
+            {accessDenied
+              ? 'Результат доступен только участникам жеребьёвки. Если вы участвовали — откройте ссылку в приложении ВКонтакте.'
+              : 'Нет данных'}
+          </Div>
+          <Button size="l" stretched onClick={onBack}>
+            {accessDenied ? 'Понятно' : 'Назад'}
+          </Button>
+        </Group>
         <Div style={{ minHeight: 'calc(56px + env(safe-area-inset-bottom, 0px))' }} />
       </Panel>
     );
@@ -285,8 +303,8 @@ export function ResultPanel({ id, result, onBack }: Props) {
   const shareMessage = buildShareMessage(scenario, winner, participants);
 
   const handleShare = async () => {
-    // Шаринг идёт через VK Bridge (bridge.send), не через VKUI. В VKUI только кнопка (Button) ниже.
-    // VKWebAppShare принимает только link; текст копируем в буфер — пользователь вставит в диалоге.
+    if (!result.serverId) return;
+    // Шаринг идёт через VK Bridge; ссылка только серверная (проверка участников).
     try {
       await navigator.clipboard.writeText(shareMessage);
       (bridge.send as (method: string, params?: object) => Promise<unknown>)('VKWebAppShowSnackbar', {
@@ -295,9 +313,7 @@ export function ResultPanel({ id, result, onBack }: Props) {
     } catch {
       // Буфер недоступен — просто откроем шаринг ссылки
     }
-    const link = result.serverId
-      ? buildShareResultLinkById(result.serverId)
-      : buildShareResultLink(scenario, winner, participants);
+    const link = buildShareResultLinkById(result.serverId);
     bridge.send('VKWebAppShare', { link }).catch(() => {});
   };
 
@@ -460,8 +476,9 @@ export function ResultPanel({ id, result, onBack }: Props) {
             stretched
             before={<Icon24ShareOutline />}
             onClick={handleShare}
+            disabled={!result.serverId}
           >
-            Отправить другу
+            {result.serverId ? 'Отправить другу' : 'Подготовка ссылки…'}
           </Button>
         </Div>
         <Div>

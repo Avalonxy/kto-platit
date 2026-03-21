@@ -1,6 +1,8 @@
 import type { ResultBody } from '../types';
 import { isValidResultId } from '../types';
 import { redis } from '../redis';
+import { checkRateLimit, RATE_LIMIT_GET_RESULT } from '../rateLimit';
+import { verifyVkSign, isVkTsValid } from '../vkSign';
 
 function corsHeaders(origin: string | null): HeadersInit {
   const allowed =
@@ -37,6 +39,21 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
+  const rate = await checkRateLimit(
+    redis,
+    request,
+    'result:get',
+    RATE_LIMIT_GET_RESULT.limit,
+    RATE_LIMIT_GET_RESULT.windowSec,
+  );
+  if (!rate.allowed) {
+    const status = rate.status ?? 429;
+    const message = status === 503
+      ? 'Сервис временно недоступен. Попробуйте позже.'
+      : 'Слишком много запросов. Подождите минуту.';
+    return new Response(JSON.stringify({ error: message }), { status, headers });
+  }
+
   const id = getIdFromRequest(request);
   if (!id || !isValidResultId(id)) {
     return new Response(JSON.stringify({ error: 'Invalid or missing result id' }), {
@@ -64,10 +81,10 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   if (data === null || typeof data !== 'object') {
-    return new Response(JSON.stringify({ error: 'Result not found or expired' }), {
-      status: 404,
-      headers,
-    });
+    return new Response(
+      JSON.stringify({ allowed: false, message: 'Результат недоступен.' }),
+      { status: 403, headers },
+    );
   }
 
   const body = data as Record<string, unknown>;
@@ -77,13 +94,62 @@ export async function GET(request: Request): Promise<Response> {
     !Array.isArray(body.participants) ||
     body.participants.length === 0
   ) {
-    return new Response(JSON.stringify({ error: 'Result not found or expired' }), {
-      status: 404,
-      headers,
-    });
+    return new Response(
+      JSON.stringify({ allowed: false, message: 'Результат недоступен.' }),
+      { status: 403, headers },
+    );
   }
 
-  return new Response(JSON.stringify(data as ResultBody), {
+  const participantVkIds = Array.isArray(body.participant_vk_ids)
+    ? (body.participant_vk_ids as number[]).map(String)
+    : [];
+  const creatorVkUserId =
+    typeof body.creator_vk_user_id === 'string' && body.creator_vk_user_id
+      ? body.creator_vk_user_id
+      : null;
+
+  const url = new URL(request.url);
+  const sign = url.searchParams.get('sign');
+  let viewerIdTrimmed: string | null = null;
+  const secret = process.env.VK_APP_SECRET ?? process.env.CLIENT_SECRET ?? '';
+  if (sign && secret) {
+    const params: Record<string, string> = {};
+    url.searchParams.forEach((value, key) => {
+      if (key.startsWith('vk_')) params[key] = value;
+    });
+    if (verifyVkSign(params, sign, secret) && isVkTsValid(params)) {
+      const fromParams = params['vk_user_id'];
+      if (fromParams && /^\d+$/.test(fromParams.trim())) {
+        viewerIdTrimmed = fromParams.trim();
+      }
+    }
+  }
+
+  const allowed =
+    viewerIdTrimmed &&
+    (participantVkIds.includes(viewerIdTrimmed) || viewerIdTrimmed === creatorVkUserId);
+  const noVerification = participantVkIds.length === 0 && !creatorVkUserId;
+  if (noVerification) {
+    return new Response(
+      JSON.stringify({
+        allowed: false,
+        message: 'Просмотр по ссылке недоступен: результат создан без привязки к ВКонтакте.',
+      }),
+      { status: 403, headers },
+    );
+  }
+  if (!allowed) {
+    return new Response(
+      JSON.stringify({
+        allowed: false,
+        message: 'Результат доступен только участникам жеребьёвки.',
+      }),
+      { status: 403, headers },
+    );
+  }
+
+  const { participant_vk_ids: _pvk, creator_vk_user_id: _cvk, ...publicResult } = body;
+  return new Response(JSON.stringify(publicResult as ResultBody), {
     status: 200,
     headers,
   });

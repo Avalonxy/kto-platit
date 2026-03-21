@@ -9,18 +9,22 @@ export type ResultResponse = {
 
 /**
  * Сохраняет результат на сервере, возвращает короткий id для ссылки.
- * vk_user_id привязывает результат к истории пользователя в VK.
- * При ошибке сети или 5xx возвращает null.
+ * Передаёт launchParams (sign + vk_*) для проверки на сервере — в историю и как создатель попадает только верифицированный vk_user_id.
  */
 export async function createResult(
   scenario: Scenario,
   winner: Participant,
   participants: Participant[],
-  vkUserId?: string | null,
+  launchParams: Record<string, string> | null,
 ): Promise<{ id: string } | null> {
   try {
     const body: Record<string, unknown> = { scenario, winner, participants };
-    if (vkUserId && /^\d+$/.test(String(vkUserId))) body.vk_user_id = String(vkUserId);
+    if (launchParams?.sign) {
+      body.sign = launchParams.sign;
+      Object.keys(launchParams).forEach((key) => {
+        if (key.startsWith('vk_')) body[key] = launchParams[key];
+      });
+    }
     const res = await fetch('/api/result', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -66,19 +70,44 @@ export async function fetchHistory(
 }
 
 /**
- * Загружает результат по серверному id. 404 или ошибка → null.
+ * Результат запроса: данные, отказ в доступе (только для участников) или не найден/ошибка.
  */
-export async function fetchResultById(id: string): Promise<ResultResponse | null> {
+export type FetchResultOutcome =
+  | { ok: true; data: ResultResponse }
+  | { ok: false; reason: 'forbidden' }
+  | { ok: false; reason: 'not_found' };
+
+/**
+ * Загружает результат по серверному id.
+ * Передаёт launchParams (sign + vk_*) для проверки подписи на сервере — viewer_id принимается только после верификации.
+ */
+export async function fetchResultById(
+  id: string,
+  launchParams: Record<string, string> | null,
+): Promise<FetchResultOutcome> {
   try {
-    const res = await fetch(`/api/result/${encodeURIComponent(id)}`, {
+    const url = new URL(`/api/result/${encodeURIComponent(id)}`, window.location.origin);
+    if (launchParams?.vk_user_id && launchParams?.sign) {
+      url.searchParams.set('viewer_id', launchParams.vk_user_id);
+      url.searchParams.set('sign', launchParams.sign);
+      Object.keys(launchParams).forEach((key) => {
+        if (key.startsWith('vk_')) url.searchParams.set(key, launchParams[key]);
+      });
+    }
+    const res = await fetch(url.toString(), {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
-    if (!res.ok) return null;
+    if (res.status === 403) {
+      return { ok: false, reason: 'forbidden' };
+    }
+    if (!res.ok) return { ok: false, reason: 'not_found' };
     const data = (await res.json()) as ResultResponse;
-    if (!data?.scenario || !data?.winner || !Array.isArray(data.participants)) return null;
-    return data;
+    if (!data?.scenario || !data?.winner || !Array.isArray(data.participants)) {
+      return { ok: false, reason: 'not_found' };
+    }
+    return { ok: true, data };
   } catch {
-    return null;
+    return { ok: false, reason: 'not_found' };
   }
 }

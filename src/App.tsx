@@ -7,13 +7,11 @@ import { Analytics } from '@vercel/analytics/react';
 import { HomePanel } from './panels/HomePanel';
 import { ResultPanel } from './panels/ResultPanel';
 import { HistoryPanel } from './panels/HistoryPanel';
-import { saveLastResult, getLastResult } from './utils/lastResult';
+import { saveLastResult, getLastResult, getParticipantVkIds } from './utils/lastResult';
 import {
   isShareResultFragment,
   getPayloadFromFragment,
-  decodeSharePayload,
   looksLikeServerId,
-  encodeSharePayload,
 } from './utils/shareResult';
 import { createResult, fetchResultById } from './api/results';
 import { updateLastHistoryItemServerId } from './utils/history';
@@ -35,7 +33,8 @@ export default function App() {
     participants: Participant[];
     serverId?: string;
   } | null>(null);
-  const [showReadyFallback, setShowReadyFallback] = useState(false);
+  /** Просмотр по ссылке #result-<id>, но доступ запрещён (не участник жеребьёвки). */
+  const [resultAccessDenied, setResultAccessDenied] = useState(false);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -53,23 +52,14 @@ export default function App() {
     return () => cancelAnimationFrame(t);
   }, []);
 
-  // Если в VK через 4 с всё ещё висит загрузка — показываем кнопку «Продолжить» (повторная отправка Ready)
-  useEffect(() => {
-    if (!(bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false)) return;
-    const id = setTimeout(() => setShowReadyFallback(true), 4000);
-    return () => clearTimeout(id);
-  }, []);
-
-  // Хеш в URL: при просмотре результата — полный фрагмент #result-<id> или #result-<base64>,
-  // чтобы при шаринге страницы друг получал ссылку на этот результат, а не на главную (#result).
-  // В браузере (не в VK) обновляем hash в адресной строке — так можно проверить шеринг
+  // Хеш в URL: только серверный id (#result-<id>), чтобы по ссылке работала проверка участников. Пока id нет — #result.
   useEffect(() => {
     const location =
-      activePanel === 'result' && resultData
-        ? resultData.serverId
-          ? `result-${resultData.serverId}`
-          : `result-${encodeSharePayload(resultData.scenario, resultData.winner, resultData.participants)}`
-        : activePanel;
+      activePanel === 'result' && resultData?.serverId
+        ? `result-${resultData.serverId}`
+        : activePanel === 'result' && resultData
+          ? 'result'
+          : activePanel;
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
     if (inVK) {
       (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
@@ -85,54 +75,65 @@ export default function App() {
     }
   }, [activePanel, resultData]);
 
-  // Открытие по ссылке: #result-<id> (сервер) или #result-<base64> (legacy); #result — последний результат (fallback)
+  // Открытие по ссылке: #result-<id> (сервер, с проверкой участников) или #result — последний результат (fallback).
+  // Зависимость от launchParams: при первом заходе подгружаем параметры и повторно запрашиваем с подписью.
   useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+
     const applyFragment = async (fragment: string) => {
       const raw = fragment.trim();
       if (isShareResultFragment(raw)) {
         const payload = getPayloadFromFragment(raw);
-        let opened = false;
-        if (payload) {
-          if (looksLikeServerId(payload)) {
-            const data = await fetchResultById(payload);
-            if (data) {
-              setResultData({ ...data, serverId: payload });
-              setActivePanel('result');
-              return;
-            }
-            (bridge.send as (method: string, params: object) => Promise<unknown>)(
-              'VKWebAppShowSnackbar',
-              { text: 'Результат не найден или ссылка устарела (30 дней)' },
-            ).catch(() => {});
-            return;
-          }
-          const decoded = decodeSharePayload(payload);
-          if (decoded) {
-            setResultData(decoded);
+        if (payload && looksLikeServerId(payload)) {
+          const outcome = await fetchResultById(payload, launchParams);
+          if (outcome.ok) {
+            setResultAccessDenied(false);
+            setResultData({ ...outcome.data, serverId: payload });
             setActivePanel('result');
-            opened = true;
             return;
           }
-        }
-        if (!opened) {
+          if (outcome.reason === 'forbidden') {
+            setResultAccessDenied(true);
+            setResultData(null);
+            setActivePanel('result');
+            return;
+          }
           (bridge.send as (method: string, params: object) => Promise<unknown>)(
             'VKWebAppShowSnackbar',
-            { text: 'Не удалось открыть результат по ссылке' },
+            { text: 'Результат не найден или ссылка устарела (30 дней)' },
           ).catch(() => {});
+          return;
         }
+        (bridge.send as (method: string, params: object) => Promise<unknown>)(
+          'VKWebAppShowSnackbar',
+          { text: 'Неверная ссылка на результат. Используйте ссылку из приложения.' },
+        ).catch(() => {});
         return;
       }
       if (raw === 'result') {
         const last = await getLastResult();
         if (last) {
-          setResultData(last);
-          setActivePanel('result');
+          const participantVkIds = getParticipantVkIds(last.participants);
+          const viewerId = launchParams?.vk_user_id?.trim() ?? null;
+          const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+          const noVerification = participantVkIds.length === 0;
+          const canView =
+            !inVK ||
+            !viewerId ||
+            (noVerification ? false : participantVkIds.includes(viewerId));
+           if (canView) {
+            setResultAccessDenied(false);
+            setResultData(last);
+            setActivePanel('result');
+          } else {
+            setResultAccessDenied(true);
+            setResultData(null);
+            setActivePanel('result');
+          }
         }
       }
     };
-
-    const hash = window.location.hash.slice(1);
-    if (hash) void applyFragment(hash);
 
     const handler = (event: unknown) => {
       const e = event as { detail?: { type?: string; data?: { location?: string } } };
@@ -142,16 +143,17 @@ export default function App() {
       }
     };
     bridge.subscribe(handler);
+    void applyFragment(hash);
     return () => bridge.unsubscribe(handler);
-  }, []);
+  }, [launchParams]);
 
   const openResult = async (scenario: Scenario, winner: Participant, participants: Participant[]) => {
     const data = { scenario, winner, participants };
+    setResultAccessDenied(false);
     setResultData(data);
     await saveLastResult(data);
     setActivePanel('result');
-    const vkUserId = launchParams?.vk_user_id ?? null;
-    createResult(scenario, winner, participants, vkUserId).then(async (res) => {
+    createResult(scenario, winner, participants, launchParams).then(async (res) => {
       if (res?.id) {
         setResultData((prev) => (prev ? { ...prev, serverId: res!.id } : null));
         await updateLastHistoryItemServerId(res.id);
@@ -161,44 +163,6 @@ export default function App() {
 
   return (
     <AppRoot>
-      {showReadyFallback && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10000,
-            padding: '12px 16px',
-            background: 'var(--vkui--color_background_contrast, #fff)',
-            color: 'var(--vkui--color_text_primary, #000)',
-            fontSize: 14,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            textAlign: 'center',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              sendVKWebAppReady();
-              setShowReadyFallback(false);
-            }}
-            style={{
-              background: 'var(--vkui--color_accent, #0077FF)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              padding: '10px 16px',
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: 'pointer',
-              width: '100%',
-            }}
-          >
-            Экран загрузки не исчез? Нажмите сюда
-          </button>
-        </div>
-      )}
       <SplitLayout>
         <SplitCol>
           <View activePanel={activePanel}>
@@ -206,14 +170,33 @@ export default function App() {
             <ResultPanel
               id="result"
               result={resultData}
-              onBack={() => setActivePanel('home')}
+              accessDenied={resultAccessDenied}
+              onBack={() => {
+                setResultAccessDenied(false);
+                setActivePanel('home');
+              }}
             />
             <HistoryPanel
               id="history"
               activePanel={activePanel}
               launchParams={launchParams}
               onBack={() => setActivePanel('home')}
-              onOpenResult={(item) => {
+              onOpenResult={async (item) => {
+                setResultAccessDenied(false);
+                if (item.serverId && launchParams?.vk_user_id && launchParams?.sign) {
+                  const outcome = await fetchResultById(item.serverId, launchParams);
+                  if (outcome.ok) {
+                    setResultData({ ...outcome.data, serverId: item.serverId });
+                    setActivePanel('result');
+                    return;
+                  }
+                  if (outcome.reason === 'forbidden') {
+                    setResultAccessDenied(true);
+                    setResultData(null);
+                    setActivePanel('result');
+                    return;
+                  }
+                }
                 const scenario = {
                   id: item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle) ?? 'custom',
                   title: item.scenarioTitle,
