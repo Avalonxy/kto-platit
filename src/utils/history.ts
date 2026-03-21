@@ -1,5 +1,6 @@
 import type { HistoryItem, Participant } from '../types';
 import { STORAGE_HISTORY_KEY, MAX_HISTORY } from '../constants';
+import { trySetLocalStorage } from './storageGuard';
 
 export async function getHistory(): Promise<HistoryItem[]> {
   try {
@@ -61,9 +62,12 @@ export async function addToHistory(params: AddParams): Promise<void> {
       return;
     }
     // Fallback to localStorage
-    localStorage.setItem(STORAGE_HISTORY_KEY, value);
-  } catch {
-    // ignore
+    const success = trySetLocalStorage(STORAGE_HISTORY_KEY, value);
+    if (!success) {
+      console.warn('Failed to save history to localStorage');
+    }
+  } catch (err) {
+    console.error('Error saving history:', err);
   }
 }
 
@@ -88,8 +92,11 @@ export async function updateLastHistoryItemServerId(serverId: string): Promise<v
       return;
     }
     // Fallback to localStorage
-    localStorage.setItem(STORAGE_HISTORY_KEY, value);
-  } catch {
-    // ignore
+    const success = trySetLocalStorage(STORAGE_HISTORY_KEY, value);
+    if (!success) {
+      console.warn('Failed to save history item with serverId to localStorage');
+    }
+  } catch (err) {
+    console.error('Error updating history item serverId:', err);
   }
 }

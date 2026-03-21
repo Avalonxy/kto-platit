@@ -17,6 +17,7 @@ import { createResult, fetchResultById } from './api/results';
 import { updateLastHistoryItemServerId } from './utils/history';
 import { sendVKWebAppReady } from './utils/vkReady';
 import { getScenarioIdByTitle } from './constants';
+import { showVkSnackbar } from './utils/safeVkBridge';
 import type { HistoryItem as HistoryItemType, Participant, Scenario } from './types';
 
 export type ActivePanel = 'home' | 'result' | 'history';
@@ -40,10 +41,12 @@ export default function App() {
   useEffect(() => {
     if (!(bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false)) return;
     (bridge.send as (method: string) => Promise<Record<string, string>>)('VKWebAppGetLaunchParams')
-      .then((p) => {
-        if (p && typeof p === 'object') setLaunchParams(p);
+      .then((p: unknown) => {
+        if (p && typeof p === 'object') setLaunchParams(p as Record<string, string>);
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        console.error('Failed to get VK launch params:', err);
+      });
   }, []);
 
   // Сообщаем VK, что приложение готово — скрывается экран загрузки (VKWebAppInit уже в main.tsx)
@@ -99,16 +102,10 @@ export default function App() {
             setActivePanel('result');
             return;
           }
-          (bridge.send as (method: string, params: object) => Promise<unknown>)(
-            'VKWebAppShowSnackbar',
-            { text: 'Результат не найден или ссылка устарела (30 дней)' },
-          ).catch(() => {});
+          void showVkSnackbar('Результат не найден или ссылка устарела (30 дней)');
           return;
         }
-        (bridge.send as (method: string, params: object) => Promise<unknown>)(
-          'VKWebAppShowSnackbar',
-          { text: 'Неверная ссылка на результат. Используйте ссылку из приложения.' },
-        ).catch(() => {});
+        void showVkSnackbar('Неверная ссылка на результат. Используйте ссылку из приложения.');
         return;
       }
       if (raw === 'result') {
@@ -153,12 +150,16 @@ export default function App() {
     setResultData(data);
     await saveLastResult(data);
     setActivePanel('result');
-    createResult(scenario, winner, participants, launchParams).then(async (res) => {
+    // Save to server, don't fire-and-forget
+    try {
+      const res = await createResult(scenario, winner, participants, launchParams);
       if (res?.id) {
-        setResultData((prev) => (prev ? { ...prev, serverId: res!.id } : null));
+        setResultData((prev) => (prev ? { ...prev, serverId: res.id } : null));
         await updateLastHistoryItemServerId(res.id);
       }
-    });
+    } catch (err) {
+      console.error('Failed to save result to server:', err);
+    }
   };
 
   return (

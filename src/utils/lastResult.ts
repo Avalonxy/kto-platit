@@ -1,5 +1,6 @@
 import type { Participant, Scenario } from '../types';
 import { STORAGE_LAST_RESULT_KEY } from '../constants';
+import { trySetLocalStorage } from './storageGuard';
 
 export type LastResultData = {
   scenario: Scenario;
@@ -45,9 +46,12 @@ export async function saveLastResult(data: LastResultData): Promise<void> {
       return;
     }
     // Fallback to localStorage
-    localStorage.setItem(STORAGE_LAST_RESULT_KEY, value);
-  } catch {
-    // ignore
+    const success = trySetLocalStorage(STORAGE_LAST_RESULT_KEY, value);
+    if (!success) {
+      console.warn('Failed to save last result to localStorage');
+    }
+  } catch (err) {
+    console.error('Error saving last result:', err);
   }
 }
 

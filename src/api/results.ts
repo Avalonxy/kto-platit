@@ -1,4 +1,5 @@
 import type { Participant, Scenario } from '../types';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
 export type ResultResponse = {
   scenario: Scenario;
@@ -25,15 +26,20 @@ export async function createResult(
         if (key.startsWith('vk_')) body[key] = launchParams[key];
       });
     }
-    const res = await fetch('/api/result', {
+    const res = await fetchWithTimeout('/api/result', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      timeout: 10000,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`Failed to create result: ${res.status} ${res.statusText}`);
+      return null;
+    }
     const data = (await res.json()) as { id?: string };
     return data.id ? { id: data.id } : null;
-  } catch {
+  } catch (err) {
+    console.error('Error creating result:', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -57,14 +63,19 @@ export async function fetchHistory(
       if (k.startsWith('vk_')) params[k] = launchParams[k];
     });
     const query = new URLSearchParams(params).toString();
-    const res = await fetch(`/api/history?${query}`, {
+    const res = await fetchWithTimeout(`/api/history?${query}`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
+      timeout: 10000,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`Failed to fetch history: ${res.status} ${res.statusText}`);
+      return null;
+    }
     const data = (await res.json()) as { items?: HistoryApiItem[] };
     return Array.isArray(data.items) ? data.items : [];
-  } catch {
+  } catch (err) {
+    console.error('Error fetching history:', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -94,20 +105,25 @@ export async function fetchResultById(
         if (key.startsWith('vk_')) url.searchParams.set(key, launchParams[key]);
       });
     }
-    const res = await fetch(url.toString(), {
+    const res = await fetchWithTimeout(url.toString(), {
       method: 'GET',
       headers: { Accept: 'application/json' },
+      timeout: 10000,
     });
     if (res.status === 403) {
       return { ok: false, reason: 'forbidden' };
     }
-    if (!res.ok) return { ok: false, reason: 'not_found' };
-    const data = (await res.json()) as ResultResponse;
+    if (!res.ok) {
+      console.error(`Failed to fetch result: ${res.status} ${res.statusText}`);
+      return { ok: false, reason: 'not_found' };
+    }
+    const data = (await res.json()) as { scenario?: unknown; winner?: unknown; participants?: unknown };
     if (!data?.scenario || !data?.winner || !Array.isArray(data.participants)) {
       return { ok: false, reason: 'not_found' };
     }
-    return { ok: true, data };
-  } catch {
+    return { ok: true, data: data as ResultResponse };
+  } catch (err) {
+    console.error('Error fetching result:', err instanceof Error ? err.message : String(err));
     return { ok: false, reason: 'not_found' };
   }
 }

@@ -18,6 +18,7 @@ import { addToHistory } from '../utils/history';
 import { chooseWeightedRandom } from '../utils/weightedChoice';
 import { ChoosingOverlay } from '../components/ChoosingOverlay';
 import { ScenarioIcon } from '../components/ScenarioIcon';
+import { trySetLocalStorage } from '../utils/storageGuard';
 import type { Participant, Scenario } from '../types';
 
 function getDisplayChar(name: string): string {
@@ -70,8 +71,13 @@ export function HomePanel({ id, onResult }: Props) {
   // Сохранение участников в localStorage при изменении
   useEffect(() => {
     try {
-      localStorage.setItem('kto-platit_participants', JSON.stringify(participants));
-    } catch {}
+      const success = trySetLocalStorage('kto-platit_participants', JSON.stringify(participants));
+      if (!success) {
+        console.warn('Failed to save participants to localStorage - quota exceeded or unavailable');
+      }
+    } catch (err) {
+      console.error('Error saving participants:', err);
+    }
   }, [participants]);
 
   const displayTitle = scenario.id === 'custom' ? customTitle || 'Свой вариант' : scenario.title;
@@ -141,7 +147,10 @@ export function HomePanel({ id, onResult }: Props) {
   }, [manualName, addParticipant]);
 
   const chooseRandom = useCallback(() => {
-    if (participants.length < 2) return;
+    if (participants.length < 2) {
+      setFriendsError('Нужно минимум 2 участников для жеребьёвки.');
+      return;
+    }
     if (scenario.id === 'custom' && !customTitle.trim()) {
       setFriendsError('Введите название сценария');
       return;
@@ -155,6 +164,11 @@ export function HomePanel({ id, onResult }: Props) {
 
     setTimeout(async () => {
       const winner = await chooseWeightedRandom(participants);
+      if (!winner) {
+        setFriendsError('Ошибка при выборе участника. Попробуйте ещё раз.');
+        setChoosingPhase('idle');
+        return;
+      }
       await addToHistory({
         scenarioTitle: displayTitle,
         scenarioEmoji: finalScenario.emoji,

@@ -11,8 +11,10 @@ function corsHeaders(origin: string | null): HeadersInit {
   const allowed =
     origin &&
     (/^https:\/\/kto-platit\.vercel\.app$/.test(origin) ||
-      /^https?:\/\/localhost(:\d+)?$/.test(origin));
-  const allow = allowed ? origin! : 'https://kto-platit.vercel.app';
+      /^https?:\/\/localhost:5173(:\d+)?$/.test(origin) || // Vite default port
+      /^https?:\/\/localhost:3000(:\d+)?$/.test(origin) ||  // Common dev ports
+      /^https?:\/\/localhost:8080(:\d+)?$/.test(origin));
+  const allow = allowed ? origin : 'https://kto-platit.vercel.app';
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -95,19 +97,26 @@ export async function POST(request: Request): Promise<Response> {
   };
 
   if (!redis) {
-    return jsonResponse({ error: 'Storage not configured' }, 503, headers);
+    console.warn('Redis not available - result will not be saved for sharing');
+    // Return success anyway so user can still see result locally, but won't have share link
+    return jsonResponse({ id, warning: 'offline' }, 201, headers);
   }
   try {
     await redis.set(key, value, { ex: RESULT_TTL_SEC });
     if (validVkUserId) {
       const historyKey = `history:${validVkUserId}`;
-      await redis.lpush(historyKey, id);
-      await redis.ltrim(historyKey, 0, 19);
-      await redis.expire(historyKey, 90 * 24 * 60 * 60);
+      try {
+        await redis.lpush(historyKey, id);
+        await redis.ltrim(historyKey, 0, 19);
+        await redis.expire(historyKey, 90 * 24 * 60 * 60);
+      } catch (histErr) {
+        console.error('Error updating history:', histErr);
+        // Don't fail the whole request if history update fails
+      }
     }
   } catch (e) {
     console.error('Redis set error:', e);
-    return jsonResponse({ error: 'Storage unavailable' }, 503, headers);
+    return jsonResponse({ error: 'Storage unavailable', details: e instanceof Error ? e.message : String(e) }, 503, headers);
   }
 
   return jsonResponse({ id }, 201, headers);

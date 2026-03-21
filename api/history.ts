@@ -68,8 +68,9 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   if (!redis) {
-    return new Response(JSON.stringify({ error: 'Storage not configured' }), {
-      status: 503,
+    console.warn('Redis not available - returning empty history');
+    return new Response(JSON.stringify({ items: [] }), {
+      status: 200,
       headers,
     });
   }
@@ -80,8 +81,9 @@ export async function GET(request: Request): Promise<Response> {
     ids = (await redis.lrange(historyKey, 0, HISTORY_LIST_MAX - 1)) as string[];
   } catch (e) {
     console.error('Redis lrange error:', e);
-    return new Response(JSON.stringify({ error: 'Storage unavailable' }), {
-      status: 503,
+    // Return empty list instead of failing completely
+    return new Response(JSON.stringify({ items: [] }), {
+      status: 200,
       headers,
     });
   }

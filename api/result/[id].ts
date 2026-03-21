@@ -8,8 +8,10 @@ function corsHeaders(origin: string | null): HeadersInit {
   const allowed =
     origin &&
     (/^https:\/\/kto-platit\.vercel\.app$/.test(origin) ||
-      /^https?:\/\/localhost(:\d+)?$/.test(origin));
-  const allow = allowed ? origin! : 'https://kto-platit.vercel.app';
+      /^https?:\/\/localhost:5173(:\d+)?$/.test(origin) || // Vite default port
+      /^https?:\/\/localhost:3000(:\d+)?$/.test(origin) ||  // Common dev ports
+      /^https?:\/\/localhost:8080(:\d+)?$/.test(origin));
+  const allow = allowed ? origin : 'https://kto-platit.vercel.app';
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -64,7 +66,8 @@ export async function GET(request: Request): Promise<Response> {
 
   const key = `result:${id}`;
   if (!redis) {
-    return new Response(JSON.stringify({ error: 'Storage not configured' }), {
+    console.warn('Redis not available for fetching result');
+    return new Response(JSON.stringify({ error: 'Storage temporarily unavailable' }), {
       status: 503,
       headers,
     });
@@ -74,7 +77,7 @@ export async function GET(request: Request): Promise<Response> {
     data = await redis.get(key);
   } catch (e) {
     console.error('Redis get error:', e);
-    return new Response(JSON.stringify({ error: 'Storage unavailable' }), {
+    return new Response(JSON.stringify({ error: 'Storage temporarily unavailable', details: e instanceof Error ? e.message : String(e) }), {
       status: 503,
       headers,
     });
