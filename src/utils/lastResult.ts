@@ -51,18 +51,13 @@ export async function saveLastResult(data: LastResultData): Promise<void> {
   }
 }
 
-<<<<<<< HEAD
-export async function getLastResult(): Promise<LastResultData | null> {
-=======
-/** Из участников с id вида "vk-12345" извлекает VK user id для проверки доступа. */
 export function getParticipantVkIds(participants: Participant[]): string[] {
   return (participants || [])
     .map((p) => { const m = p.id.match(/^vk-(\d+)$/); return m ? m[1] : null; })
     .filter((id): id is string => id !== null);
 }
 
-export function getLastResult(): LastResultData | null {
->>>>>>> 90c2d38dcace5d6d45ab9ee6d8207afa4d879cf8
+export async function getLastResult(): Promise<LastResultData | null> {
   try {
     // Try VKWebAppStorage first
     const bridge = (await import('@vkontakte/vk-bridge')).default;
