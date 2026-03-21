@@ -1,6 +1,7 @@
 import { redis } from './redis';
 import { verifyVkSign, isVkTsValid } from './vkSign';
 import { checkRateLimit, RATE_LIMIT_POST_PARTICIPANTS } from './rateLimit';
+import { extractVkLaunchParamsFromUrl } from './launchParamsFromUrl';
 
 const PARTICIPANTS_TTL_SEC = 90 * 24 * 60 * 60; // 90 дней
 const MAX_PARTICIPANTS = 50;
@@ -84,17 +85,16 @@ export async function GET(request: Request): Promise<Response> {
 
   const url = new URL(request.url);
   const sign = url.searchParams.get('sign');
-  const vkUserIdParam = url.searchParams.get('vk_user_id');
-  if (!sign || !vkUserIdParam || !/^\d+$/.test(vkUserIdParam)) {
-    return jsonResponse({ error: 'Missing or invalid vk_user_id / sign' }, 400, origin, methods);
+  if (!sign) {
+    return jsonResponse({ error: 'Missing sign' }, 400, origin, methods);
   }
 
-  const params: Record<string, string> = {};
-  url.searchParams.forEach((value, key) => {
-    if (key.startsWith('vk_')) params[key] = value;
-  });
+  const extracted = extractVkLaunchParamsFromUrl(url.searchParams);
+  if (!extracted.ok) {
+    return jsonResponse({ error: extracted.message }, 400, origin, methods);
+  }
 
-  const verified = verifyLaunchParams(params, sign);
+  const verified = verifyLaunchParams(extracted.params, sign);
   if (!verified.ok) {
     return jsonResponse({ error: verified.message }, verified.status, origin, methods);
   }

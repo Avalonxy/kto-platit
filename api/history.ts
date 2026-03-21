@@ -1,6 +1,7 @@
 import { redis } from './redis';
 import { verifyVkSign, isVkTsValid } from './vkSign';
 import type { ResultBody } from './types';
+import { extractVkLaunchParamsFromUrl } from './launchParamsFromUrl';
 
 const HISTORY_LIST_MAX = 20;
 
@@ -42,18 +43,22 @@ export async function GET(request: Request): Promise<Response> {
 
   const url = new URL(request.url);
   const sign = url.searchParams.get('sign');
-  const vkUserId = url.searchParams.get('vk_user_id');
-  if (!sign || !vkUserId || !/^\d+$/.test(vkUserId)) {
-    return new Response(JSON.stringify({ error: 'Missing or invalid vk_user_id / sign' }), {
+  if (!sign) {
+    return new Response(JSON.stringify({ error: 'Missing sign' }), {
       status: 400,
       headers,
     });
   }
 
-  const params: Record<string, string> = {};
-  url.searchParams.forEach((value, key) => {
-    if (key.startsWith('vk_')) params[key] = value;
-  });
+  const extracted = extractVkLaunchParamsFromUrl(url.searchParams);
+  if (!extracted.ok) {
+    return new Response(JSON.stringify({ error: extracted.message }), {
+      status: 400,
+      headers,
+    });
+  }
+
+  const params = extracted.params;
   if (!verifyVkSign(params, sign, secret)) {
     return new Response(JSON.stringify({ error: 'Invalid sign' }), {
       status: 401,
@@ -63,6 +68,14 @@ export async function GET(request: Request): Promise<Response> {
   if (!isVkTsValid(params)) {
     return new Response(JSON.stringify({ error: 'Launch params expired, reopen the app' }), {
       status: 401,
+      headers,
+    });
+  }
+
+  const vkUserId = params['vk_user_id']?.trim() ?? '';
+  if (!vkUserId || !/^\d+$/.test(vkUserId)) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid vk_user_id' }), {
+      status: 400,
       headers,
     });
   }

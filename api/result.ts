@@ -116,7 +116,7 @@ export async function POST(request: Request): Promise<Response> {
     }
   } catch (e) {
     console.error('Redis set error:', e);
-    return jsonResponse({ error: 'Storage unavailable', details: e instanceof Error ? e.message : String(e) }, 503, headers);
+    return jsonResponse({ error: 'Storage unavailable' }, 503, headers);
   }
 
   return jsonResponse({ id }, 201, headers);

@@ -3,6 +3,7 @@ import { isValidResultId } from '../types';
 import { redis } from '../redis';
 import { checkRateLimit, RATE_LIMIT_GET_RESULT } from '../rateLimit';
 import { verifyVkSign, isVkTsValid } from '../vkSign';
+import { extractVkLaunchParamsFromUrl } from '../launchParamsFromUrl';
 
 function corsHeaders(origin: string | null): HeadersInit {
   const allowed =
@@ -77,7 +78,8 @@ export async function GET(request: Request): Promise<Response> {
     data = await redis.get(key);
   } catch (e) {
     console.error('Redis get error:', e);
-    return new Response(JSON.stringify({ error: 'Storage temporarily unavailable', details: e instanceof Error ? e.message : String(e) }), {
+    // Не отдаём клиенту внутренние детали (FPD / чек-лист безопасности)
+    return new Response(JSON.stringify({ error: 'Storage temporarily unavailable' }), {
       status: 503,
       headers,
     });
@@ -116,14 +118,14 @@ export async function GET(request: Request): Promise<Response> {
   let viewerIdTrimmed: string | null = null;
   const secret = process.env.VK_APP_SECRET ?? process.env.CLIENT_SECRET ?? '';
   if (sign && secret) {
-    const params: Record<string, string> = {};
-    url.searchParams.forEach((value, key) => {
-      if (key.startsWith('vk_')) params[key] = value;
-    });
-    if (verifyVkSign(params, sign, secret) && isVkTsValid(params)) {
-      const fromParams = params['vk_user_id'];
-      if (fromParams && /^\d+$/.test(fromParams.trim())) {
-        viewerIdTrimmed = fromParams.trim();
+    const extracted = extractVkLaunchParamsFromUrl(url.searchParams);
+    if (extracted.ok) {
+      const params = extracted.params;
+      if (verifyVkSign(params, sign, secret) && isVkTsValid(params)) {
+        const fromParams = params['vk_user_id'];
+        if (fromParams && /^\d+$/.test(fromParams.trim())) {
+          viewerIdTrimmed = fromParams.trim();
+        }
       }
     }
   }
