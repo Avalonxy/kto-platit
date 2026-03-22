@@ -24,10 +24,21 @@ export type ResultBody = {
 };
 
 const MAX_STRING_LEN = 500;
+/** URL фото VK CDN часто >500 символов; короткий лимит ломал POST /api/result и шеринг. */
+const MAX_PHOTO_URL_LEN = 2048;
 const MAX_PARTICIPANTS = 50;
 
 function isNonEmptyString(x: unknown): x is string {
   return typeof x === 'string' && x.trim().length > 0 && x.length <= MAX_STRING_LEN;
+}
+
+function isParticipantPhoto(x: unknown): x is string | undefined {
+  if (x === undefined || x === null) return true;
+  if (typeof x !== 'string') return false;
+  if (x.length > MAX_PHOTO_URL_LEN) return false;
+  const t = x.trim();
+  if (t.length === 0) return false;
+  return /^https?:\/\//i.test(t) && !/[<>"']/.test(t);
 }
 
 function isParticipant(x: unknown): x is Participant {
@@ -36,8 +47,7 @@ function isParticipant(x: unknown): x is Participant {
   return (
     isNonEmptyString(o.id) &&
     isNonEmptyString(o.name) &&
-    (o.photo === undefined ||
-      (typeof o.photo === 'string' && o.photo.length <= MAX_STRING_LEN)) &&
+    isParticipantPhoto(o.photo) &&
     (o.isFromVk === undefined || typeof o.isFromVk === 'boolean')
   );
 }

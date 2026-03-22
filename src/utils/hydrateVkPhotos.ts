@@ -8,14 +8,48 @@ function isVK(): boolean {
   return bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
 }
 
-/** Безопасный URL аватара (VK CDN / заглушки). */
+/** Безопасный URL аватара (VK CDN; длина как на бэкенде validateResultBody). */
+const MAX_PHOTO_LEN = 2048;
+
 function isAllowedPhotoUrl(url: string): boolean {
   const u = url.trim();
   return (
     (u.startsWith('https://') || u.startsWith('http://')) &&
-    u.length <= 512 &&
+    u.length <= MAX_PHOTO_LEN &&
     !/[<>"']/.test(u)
   );
+}
+
+async function getVkApiAccessToken(): Promise<string | null> {
+  const scopesToTry = ['', 'friends'];
+  for (const scope of scopesToTry) {
+    try {
+      const res = await (bridge.send as (method: string, params: { app_id: number; scope: string }) => Promise<{ access_token?: string }>)(
+        'VKWebAppGetAuthToken',
+        { app_id: VK_APP_ID, scope: scope },
+      );
+      if (res?.access_token) return res.access_token;
+    } catch {
+      /* следующий scope */
+    }
+  }
+  return null;
+}
+
+function parseUsersGetPayload(raw: unknown): Array<{ id: number; photo_200?: string; photo_100?: string }> {
+  if (raw == null) return [];
+  if (typeof raw === 'string') {
+    try {
+      return parseUsersGetPayload(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(raw)) return raw as Array<{ id: number; photo_200?: string; photo_100?: string }>;
+  if (typeof raw === 'object' && raw !== null && 'response' in raw) {
+    return parseUsersGetPayload((raw as { response: unknown }).response);
+  }
+  return [];
 }
 
 /**
@@ -59,43 +93,35 @@ export async function hydrateVkParticipantPhotos(participants: Participant[]): P
 
   const stillNeed = [...neededVkIds].filter((id) => !photoByVkId.has(id));
   if (stillNeed.length > 0) {
-    try {
-      const { access_token: token } = await (bridge.send as (method: string, params: { app_id: number; scope: string }) => Promise<{ access_token: string }>)(
-        'VKWebAppGetAuthToken',
-        { app_id: VK_APP_ID, scope: '' },
-      );
-      if (token) {
-        const chunkSize = 80;
-        for (let i = 0; i < stillNeed.length; i += chunkSize) {
-          const chunk = stillNeed.slice(i, i + chunkSize);
-          try {
-            const apiRes = await (bridge.send as (method: string, params: { method: string; params: Record<string, string> }) => Promise<{ response?: unknown }>)(
-              'VKWebAppCallAPIMethod',
-              {
-                method: 'users.get',
-                params: {
-                  access_token: token,
-                  v: '5.199',
-                  user_ids: chunk.join(','),
-                  fields: 'photo_200',
-                },
+    const token = await getVkApiAccessToken();
+    if (token) {
+      const chunkSize = 80;
+      for (let i = 0; i < stillNeed.length; i += chunkSize) {
+        const chunk = stillNeed.slice(i, i + chunkSize);
+        try {
+          const apiRes = await (bridge.send as (method: string, params: { method: string; params: Record<string, string> }) => Promise<{ response?: unknown }>)(
+            'VKWebAppCallAPIMethod',
+            {
+              method: 'users.get',
+              params: {
+                access_token: token,
+                v: '5.199',
+                user_ids: chunk.join(','),
+                fields: 'photo_200,photo_100',
               },
-            );
-            const users = apiRes?.response as Array<{ id: number; photo_200?: string }> | undefined;
-            if (Array.isArray(users)) {
-              for (const u of users) {
-                if (u.photo_200 && isAllowedPhotoUrl(u.photo_200)) {
-                  photoByVkId.set(String(u.id), u.photo_200);
-                }
-              }
+            },
+          );
+          const users = parseUsersGetPayload(apiRes?.response ?? apiRes);
+          for (const u of users) {
+            const url = u.photo_200 || u.photo_100;
+            if (url && isAllowedPhotoUrl(url)) {
+              photoByVkId.set(String(u.id), url);
             }
-          } catch {
-            /* следующий чанк или выход */
           }
+        } catch {
+          /* следующий чанк */
         }
       }
-    } catch {
-      /* нет токена / отказ — остаёмся без части фото */
     }
   }
 

@@ -1,6 +1,8 @@
 /**
  * Защита от переполнения localStorage при сохранении данных.
  */
+import { STORAGE_HISTORY_KEY } from '../constants';
+
 const STORAGE_LIMIT_PERCENT = 0.9; // Алёрт при 90% заполнения
 
 export function trySetLocalStorage(key: string, value: string): boolean {
@@ -11,7 +13,7 @@ export function trySetLocalStorage(key: string, value: string): boolean {
     if (err instanceof Error && err.name === 'QuotaExceededError') {
       console.error(`localStorage quota exceeded for key ${key}`);
       // Пытаемся освободить место, удалив старые истории
-      const historyKey = 'kto-platit_history';
+      const historyKey = STORAGE_HISTORY_KEY;
       if (key !== historyKey) {
         try {
           localStorage.removeItem(historyKey);

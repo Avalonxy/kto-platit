@@ -26,7 +26,7 @@ function toSlim(participants: Participant[]): SlimRow[] {
       f: p.isFromVk ? 1 : 0,
       g: p.gender,
     };
-    if (p.photo && p.photo.length > 0 && p.photo.length <= 512) {
+    if (p.photo && p.photo.length > 0 && p.photo.length <= 2048) {
       row.ph = p.photo;
     }
     return row;

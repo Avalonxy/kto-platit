@@ -7,7 +7,7 @@ const PARTICIPANTS_TTL_SEC = 90 * 24 * 60 * 60; // 90 дней
 const MAX_PARTICIPANTS = 50;
 const MAX_NAME_LEN = 100;
 const MAX_ID_LEN = 96;
-const MAX_PHOTO_URL_LEN = 512;
+const MAX_PHOTO_URL_LEN = 2048;
 
 type SlimRow = { id: string; name: string; f?: number; g?: string; ph?: string };
 
@@ -54,9 +54,9 @@ function validateSlimRows(raw: unknown): SlimRow[] | null {
   if (!Array.isArray(raw)) return null;
   if (raw.length > MAX_PARTICIPANTS) return null;
   const out: SlimRow[] = [];
-  for (const row of raw) {
-    if (!row || typeof row !== 'object') return null;
-    const o = row as Record<string, unknown>;
+  for (const rawRow of raw) {
+    if (!rawRow || typeof rawRow !== 'object') return null;
+    const o = rawRow as Record<string, unknown>;
     if (typeof o.id !== 'string' || typeof o.name !== 'string') return null;
     if (o.id.length === 0 || o.id.length > MAX_ID_LEN) return null;
     if (o.name.length > MAX_NAME_LEN) return null;
@@ -67,14 +67,14 @@ function validateSlimRows(raw: unknown): SlimRow[] | null {
       if (typeof ph !== 'string' || ph.length > MAX_PHOTO_URL_LEN) return null;
       if (!/^https?:\/\//i.test(ph) || /[<>"']/.test(ph)) return null;
     }
-    const row: SlimRow = {
+    const slim: SlimRow = {
       id: o.id,
       name: o.name,
       f: o.f === 1 ? 1 : o.f === 0 ? 0 : undefined,
       g: g as string | undefined,
     };
-    if (ph !== undefined) row.ph = ph;
-    out.push(row);
+    if (ph !== undefined) slim.ph = ph;
+    out.push(slim);
   }
   return out;
 }

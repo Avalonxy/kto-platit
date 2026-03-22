@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import bridge from '@vkontakte/vk-bridge';
 import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button, Spinner } from '../ui';
 import { getScenarioIdByTitle } from '../constants';
-import { getHistory } from '../utils/history';
+import { getHistory, mergeServerAndLocalHistory } from '../utils/history';
 import { fetchHistory, type HistoryApiItem } from '../api/results';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { HistoryItem } from '../types';
@@ -45,22 +45,23 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
   useEffect(() => {
     const loadHistory = async () => {
       if (activePanel !== 'history') return;
+      const localHistory = await getHistory();
       if (launchParams?.vk_user_id && launchParams?.sign) {
         setLoading(true);
         const result = await fetchHistory(launchParams);
         if (result === null) {
-          const localHistory = await getHistory();
           setItems(localHistory);
           (bridge.send as (method: string, params: object) => Promise<unknown>)(
             'VKWebAppShowSnackbar',
             { text: 'Не удалось загрузить историю с сервера, показана локальная' },
           ).catch(() => {});
         } else {
-          setItems(result.map(apiItemToHistoryItem));
+          const serverItems = result.map(apiItemToHistoryItem);
+          // Пустой Redis-список не затирает только что сохранённую локально историю
+          setItems(mergeServerAndLocalHistory(serverItems, localHistory));
         }
         setLoading(false);
       } else {
-        const localHistory = await getHistory();
         setItems(localHistory);
       }
     };

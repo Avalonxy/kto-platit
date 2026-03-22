@@ -155,9 +155,14 @@ export default function App() {
       if (res?.id) {
         setResultData((prev) => (prev ? { ...prev, serverId: res.id } : null));
         await updateLastHistoryItemServerId(res.id);
+      } else {
+        void showVkSnackbar(
+          'Не удалось сохранить результат на сервере — ссылка для друзей может не появиться. Проверьте сеть и откройте приложение заново.',
+        );
       }
     } catch (err) {
       console.error('Failed to save result to server:', err);
+      void showVkSnackbar('Ошибка при сохранении результата. Попробуйте ещё раз.');
     }
   };
 
