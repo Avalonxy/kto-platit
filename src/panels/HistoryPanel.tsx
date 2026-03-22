@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import bridge from '@vkontakte/vk-bridge';
 import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button, Spinner } from '../ui';
 import { getScenarioIdByTitle } from '../constants';
-import { getHistory, mergeServerAndLocalHistory } from '../utils/history';
+import { getHistory } from '../utils/history';
 import { fetchHistory, type HistoryApiItem } from '../api/results';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { HistoryItem } from '../types';
@@ -56,9 +56,9 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
             { text: 'Не удалось загрузить историю с сервера, показана локальная' },
           ).catch(() => {});
         } else {
-          const serverItems = result.map(apiItemToHistoryItem);
-          // Пустой Redis-список не затирает только что сохранённую локально историю
-          setItems(mergeServerAndLocalHistory(serverItems, localHistory));
+          // Только сервер: один источник для одного vk_user_id — одинаковое число записей на ПК и мобилке.
+          // Локальная история (localStorage) привязана к устройству и давала расхождение с отчётом #7103915.
+          setItems(result.map(apiItemToHistoryItem));
         }
         setLoading(false);
       } else {

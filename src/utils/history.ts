@@ -85,44 +85,6 @@ function mergeSources(a: HistoryItem[], b: HistoryItem[]): HistoryItem[] {
     .slice(0, MAX_HISTORY);
 }
 
-/**
- * Серверная история + локальная (записи ещё без serverId или до синка).
- */
-export function mergeServerAndLocalHistory(server: HistoryItem[], local: HistoryItem[]): HistoryItem[] {
-  const usedLocalIds = new Set<string>();
-  const out: HistoryItem[] = [];
-
-  for (const s of server) {
-    const localMatch = local.find(
-      (l) =>
-        (l.serverId != null && (l.serverId === s.serverId || l.serverId === s.id)) ||
-        l.id === s.id,
-    );
-    if (localMatch) usedLocalIds.add(localMatch.id);
-    out.push(
-      localMatch
-        ? {
-            ...s,
-            winner: {
-              ...s.winner,
-              photo: s.winner.photo ?? localMatch.winner.photo,
-            },
-          }
-        : s,
-    );
-  }
-
-  for (const l of local) {
-    if (usedLocalIds.has(l.id)) continue;
-    if (l.serverId && out.some((o) => o.serverId === l.serverId || o.id === l.serverId)) continue;
-    out.push(l);
-  }
-
-  return out
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, MAX_HISTORY);
-}
-
 export async function getHistory(): Promise<HistoryItem[]> {
   try {
     const bridge = (await import('@vkontakte/vk-bridge')).default;
