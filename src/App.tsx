@@ -22,11 +22,15 @@ import type { HistoryItem as HistoryItemType, Participant, Scenario } from './ty
 
 export type ActivePanel = 'home' | 'result' | 'history';
 
+/** Куда вернуться с экрана результата по «Назад» (из жеребьёвки или из списка истории). */
+type ResultBackTarget = 'home' | 'history';
+
 /** Параметры запуска VK (vk_user_id, sign, vk_ts и др.) для API истории. */
 type LaunchParams = Record<string, string> | null;
 
 export default function App() {
   const [activePanel, setActivePanel] = useState<ActivePanel>('home');
+  const [resultBackTarget, setResultBackTarget] = useState<ResultBackTarget>('home');
   const [launchParams, setLaunchParams] = useState<LaunchParams>(null);
   const [resultData, setResultData] = useState<{
     scenario: Scenario;
@@ -92,6 +96,7 @@ export default function App() {
           const outcome = await fetchResultById(payload, launchParams);
           if (outcome.ok) {
             setResultAccessDenied(false);
+            setResultBackTarget('home');
             setResultData({ ...outcome.data, serverId: payload });
             setActivePanel('result');
             return;
@@ -99,6 +104,7 @@ export default function App() {
           if (outcome.reason === 'forbidden') {
             setResultAccessDenied(true);
             setResultData(null);
+            setResultBackTarget('home');
             setActivePanel('result');
             return;
           }
@@ -120,11 +126,13 @@ export default function App() {
             !inVK || noVerification || (!!viewerId && participantVkIds.includes(viewerId));
           if (canView) {
             setResultAccessDenied(false);
+            setResultBackTarget('home');
             setResultData(last);
             setActivePanel('result');
           } else {
             setResultAccessDenied(true);
             setResultData(null);
+            setResultBackTarget('home');
             setActivePanel('result');
           }
         }
@@ -146,6 +154,7 @@ export default function App() {
   const openResult = async (scenario: Scenario, winner: Participant, participants: Participant[]) => {
     const data = { scenario, winner, participants };
     setResultAccessDenied(false);
+    setResultBackTarget('home');
     setResultData(data);
     await saveLastResult(data);
     setActivePanel('result');
@@ -178,7 +187,7 @@ export default function App() {
               accessDenied={resultAccessDenied}
               onBack={() => {
                 setResultAccessDenied(false);
-                setActivePanel('home');
+                setActivePanel(resultBackTarget);
               }}
             />
             <HistoryPanel
@@ -188,6 +197,7 @@ export default function App() {
               onBack={() => setActivePanel('home')}
               onOpenResult={async (item) => {
                 setResultAccessDenied(false);
+                setResultBackTarget('history');
                 if (item.serverId && launchParams?.vk_user_id && launchParams?.sign) {
                   const outcome = await fetchResultById(item.serverId, launchParams);
                   if (outcome.ok) {
@@ -223,14 +233,14 @@ export default function App() {
           </View>
           <Tabbar>
             <TabbarItem
-              selected={activePanel === 'home'}
+              selected={activePanel === 'home' || (activePanel === 'result' && resultBackTarget === 'home')}
               onClick={() => setActivePanel('home')}
               text="Жеребьёвка"
             >
               <Icon28UsersOutline />
             </TabbarItem>
             <TabbarItem
-              selected={activePanel === 'history'}
+              selected={activePanel === 'history' || (activePanel === 'result' && resultBackTarget === 'history')}
               onClick={() => setActivePanel('history')}
               text="История"
             >
