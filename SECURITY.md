@@ -20,7 +20,7 @@ Please **do not** open a public issue with exploit details before a fix is avail
 ### How to report
 
 1. **GitHub:** use [Security advisories](https://docs.github.com/en/code-security/security-advisories/private-vulnerability-reporting) for this repository (private report to maintainers), or contact the repository owner as described in the profile / README.
-2. **Elsewhere:** if GitHub is not an option, use a dedicated security contact email (replace this line with e.g. `security@yourdomain.com`).
+2. **Elsewhere:** if GitHub is not an option, use a dedicated security contact email (replace this line with e.g. `security@fts77.ru`).
 
 ### What to include
 
