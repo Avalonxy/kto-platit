@@ -15,6 +15,7 @@ import {
 } from './utils/shareResult';
 import { createResult, fetchResultById } from './api/results';
 import { updateLastHistoryItemServerId } from './utils/history';
+import { hydrateVkParticipantPhotos } from './utils/hydrateVkPhotos';
 import { sendVKWebAppReady } from './utils/vkReady';
 import { getScenarioIdByTitle } from './constants';
 import { showVkSnackbar } from './utils/safeVkBridge';
@@ -219,7 +220,14 @@ export default function App() {
                 if (item.serverId && launchParams?.vk_user_id && launchParams?.sign) {
                   const outcome = await fetchResultById(item.serverId, launchParams);
                   if (outcome.ok) {
-                    setResultData({ ...outcome.data, serverId: item.serverId });
+                    const d = outcome.data;
+                    const merged = await hydrateVkParticipantPhotos([d.winner, ...d.participants]);
+                    setResultData({
+                      ...d,
+                      winner: merged[0]!,
+                      participants: merged.slice(1),
+                      serverId: item.serverId,
+                    });
                     setActivePanel('result');
                     return;
                   }

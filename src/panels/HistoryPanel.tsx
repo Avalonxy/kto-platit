@@ -3,6 +3,7 @@ import bridge from '@vkontakte/vk-bridge';
 import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button, Spinner } from '../ui';
 import { getScenarioIdByTitle } from '../constants';
 import { getHistory } from '../utils/history';
+import { hydrateHistoryWinners } from '../utils/hydrateVkPhotos';
 import { fetchHistory, type HistoryApiItem } from '../api/results';
 import { ScenarioIcon } from '../components/ScenarioIcon';
 import type { HistoryItem } from '../types';
@@ -51,7 +52,9 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
       const localHistory = await getHistory();
       if (cancelled) return;
       // Сразу показать кэш — убирает «пусто» на 1–2 с и мигание при ожидании VK Storage / сети.
-      setItems(localHistory);
+      const localWithPhotos = await hydrateHistoryWinners(localHistory);
+      if (cancelled) return;
+      setItems(localWithPhotos);
 
       if (launchParams?.vk_user_id && launchParams?.sign) {
         const result = await fetchHistory(launchParams);
@@ -64,7 +67,10 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
           ).catch(() => {});
         } else {
           // Только сервер: один источник для одного vk_user_id — одинаковое число записей на ПК и мобилке.
-          setItems(result.map(apiItemToHistoryItem));
+          const fromApi = result.map(apiItemToHistoryItem);
+          const serverWithPhotos = await hydrateHistoryWinners(fromApi);
+          if (cancelled) return;
+          setItems(serverWithPhotos);
         }
       }
       if (!cancelled) setLoading(false);

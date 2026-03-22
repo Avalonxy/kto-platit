@@ -1,5 +1,5 @@
 import bridge from '@vkontakte/vk-bridge';
-import type { Participant } from '../types';
+import type { HistoryItem, Participant } from '../types';
 import { VK_APP_ID } from '../constants';
 
 const VK_ID_RE = /^vk-(\d+)$/;
@@ -133,4 +133,16 @@ export async function hydrateVkParticipantPhotos(participants: Participant[]): P
     const ph = photoByVkId.get(m[1]);
     return ph ? { ...p, photo: ph } : p;
   });
+}
+
+/**
+ * Подставляет photo для победителей в истории (список + экран результата из истории).
+ * VK Storage хранит историю без URL фото; ответ /api/history может не содержать photo для vk-участников — один батч users.get.
+ */
+export async function hydrateHistoryWinners(items: HistoryItem[]): Promise<HistoryItem[]> {
+  if (items.length === 0) return items;
+  if (!isVK()) return items;
+  const winners = items.map((i) => i.winner);
+  const hydrated = await hydrateVkParticipantPhotos(winners);
+  return items.map((item, idx) => ({ ...item, winner: hydrated[idx] ?? item.winner }));
 }
