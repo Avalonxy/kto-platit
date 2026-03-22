@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import bridge from '@vkontakte/vk-bridge';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from './ui';
@@ -43,6 +43,8 @@ export default function App() {
   const [resultAccessDenied, setResultAccessDenied] = useState(false);
   /** VKUI Alert / прочие popout (SplitLayout) — не использовать window.confirm во WebView ВК. */
   const [popout, setPopout] = useState<ReactNode>(null);
+  /** Отмена устаревшего догруза результата из истории при быстром переключении записей. */
+  const historyResultFetchGenRef = useRef(0);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -201,7 +203,9 @@ export default function App() {
               onOpenResult={async (item) => {
                 setResultAccessDenied(false);
                 setResultBackTarget('history');
-                const openHistoryItemLocally = () => {
+                const gen = ++historyResultFetchGenRef.current;
+
+                const buildLocalResultFromHistory = () => {
                   const scenario = {
                     id: item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle) ?? 'custom',
                     title: item.scenarioTitle,
@@ -211,36 +215,40 @@ export default function App() {
                     id: `p-${idx}-${name.slice(0, 8)}`,
                     name,
                   }));
-                  setResultData({
+                  return {
                     scenario,
                     winner: item.winner,
                     participants,
                     serverId: item.serverId,
-                  });
-                  setActivePanel('result');
+                  };
                 };
+
+                // Сразу открываем экран из данных списка (в т.ч. фото победителя после hydrateHistoryWinners).
+                // Раньше ждали GET /api/result/:id + hydrateVkParticipantPhotos — заметная задержка (~сеть + Bridge).
+                setResultData(buildLocalResultFromHistory());
+                setActivePanel('result');
+
                 if (item.serverId && launchParams?.vk_user_id && launchParams?.sign) {
                   const outcome = await fetchResultById(item.serverId, launchParams);
+                  if (historyResultFetchGenRef.current !== gen) return;
                   if (outcome.ok) {
                     const d = outcome.data;
                     const merged = await hydrateVkParticipantPhotos([d.winner, ...d.participants]);
+                    if (historyResultFetchGenRef.current !== gen) return;
                     setResultData({
                       ...d,
                       winner: merged[0]!,
                       participants: merged.slice(1),
                       serverId: item.serverId,
                     });
-                    setActivePanel('result');
                     return;
                   }
                   // 403: запись в истории уже выдана этому vk_user_id через GET /api/history — показываем её,
                   // даже если создатель не добавлял себя в vk-участники (или в Redis устаревший тип creator id).
                   if (outcome.reason === 'forbidden') {
-                    openHistoryItemLocally();
                     return;
                   }
                 }
-                openHistoryItemLocally();
               }}
             />
           </View>
