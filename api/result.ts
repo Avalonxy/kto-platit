@@ -1,8 +1,8 @@
-import type { ResultBody } from './types';
-import { validateResultBody } from './types';
-import { redis } from './redis';
-import { checkRateLimit, RATE_LIMIT_POST_RESULT } from './rateLimit';
-import { verifyVkSign, isVkTsValid } from './vkSign';
+import type { ResultBody } from './types.js';
+import { validateResultBody } from './types.js';
+import { redis } from './redis.js';
+import { checkRateLimit, RATE_LIMIT_POST_RESULT } from './rateLimit.js';
+import { verifyVkSign, isVkTsValid } from './vkSign.js';
 import crypto from 'crypto';
 
 const RESULT_TTL_SEC = 30 * 24 * 60 * 60; // 30 days

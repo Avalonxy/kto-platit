@@ -1,7 +1,7 @@
-import { redis } from './redis';
-import { verifyVkSign, isVkTsValid } from './vkSign';
-import { checkRateLimit, RATE_LIMIT_POST_PARTICIPANTS } from './rateLimit';
-import { extractVkLaunchParamsFromUrl } from './launchParamsFromUrl';
+import { redis } from './redis.js';
+import { verifyVkSign, isVkTsValid } from './vkSign.js';
+import { checkRateLimit, RATE_LIMIT_POST_PARTICIPANTS } from './rateLimit.js';
+import { extractVkLaunchParamsFromUrl } from './launchParamsFromUrl.js';
 
 const PARTICIPANTS_TTL_SEC = 90 * 24 * 60 * 60; // 90 дней
 const MAX_PARTICIPANTS = 50;

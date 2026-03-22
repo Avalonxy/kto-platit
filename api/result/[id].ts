@@ -1,9 +1,9 @@
-import type { ResultBody } from '../types';
-import { isValidResultId } from '../types';
-import { redis } from '../redis';
-import { checkRateLimit, RATE_LIMIT_GET_RESULT } from '../rateLimit';
-import { verifyVkSign, isVkTsValid } from '../vkSign';
-import { extractVkLaunchParamsFromUrl } from '../launchParamsFromUrl';
+import type { ResultBody } from '../types.js';
+import { isValidResultId } from '../types.js';
+import { redis } from '../redis.js';
+import { checkRateLimit, RATE_LIMIT_GET_RESULT } from '../rateLimit.js';
+import { verifyVkSign, isVkTsValid } from '../vkSign.js';
+import { extractVkLaunchParamsFromUrl } from '../launchParamsFromUrl.js';
 
 function corsHeaders(origin: string | null): HeadersInit {
   const allowed =

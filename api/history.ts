@@ -1,7 +1,7 @@
-import { redis } from './redis';
-import { verifyVkSign, isVkTsValid } from './vkSign';
-import type { ResultBody } from './types';
-import { extractVkLaunchParamsFromUrl } from './launchParamsFromUrl';
+import { redis } from './redis.js';
+import { verifyVkSign, isVkTsValid } from './vkSign.js';
+import type { ResultBody } from './types.js';
+import { extractVkLaunchParamsFromUrl } from './launchParamsFromUrl.js';
 
 const HISTORY_LIST_MAX = 20;
 
