@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import bridge from '@vkontakte/vk-bridge';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from './ui';
@@ -41,6 +41,8 @@ export default function App() {
   } | null>(null);
   /** Просмотр по ссылке #result-<id>, но доступ запрещён (не участник жеребьёвки). */
   const [resultAccessDenied, setResultAccessDenied] = useState(false);
+  /** VKUI Alert / прочие popout (SplitLayout) — не использовать window.confirm во WebView ВК. */
+  const [popout, setPopout] = useState<ReactNode>(null);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -178,10 +180,10 @@ export default function App() {
 
   return (
     <AppRoot>
-      <SplitLayout>
+      <SplitLayout popout={popout}>
         <SplitCol>
           <View activePanel={activePanel}>
-            <HomePanel id="home" launchParams={launchParams} onResult={openResult} />
+            <HomePanel id="home" launchParams={launchParams} onResult={openResult} setPopout={setPopout} />
             <ResultPanel
               id="result"
               result={resultData}

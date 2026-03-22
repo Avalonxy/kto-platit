@@ -8,7 +8,9 @@ import * as VK from '@vkontakte/vkui';
 type OptionalChildren = { children?: ReactNode };
 
 export const AppRoot: FC<OptionalChildren> = VK.AppRoot as FC<OptionalChildren>;
-export const SplitLayout: FC<OptionalChildren> = VK.SplitLayout as FC<OptionalChildren>;
+export const SplitLayout: FC<
+  OptionalChildren & { popout?: ReactNode; modal?: ReactNode; header?: ReactNode }
+> = VK.SplitLayout as FC<any>;
 export const SplitCol: FC<OptionalChildren> = VK.SplitCol as FC<OptionalChildren>;
 export const View: FC<{ activePanel: string; children?: ReactNode }> = VK.View as FC<{ activePanel: string; children?: ReactNode }>;
 export const Tabbar: FC<OptionalChildren> = VK.Tabbar as FC<OptionalChildren>;
@@ -51,6 +53,20 @@ export const ModalPage: FC<{ id: string; onClose?: () => void; settlingHeight?: 
 export const ModalPageHeader: FC<{ children?: ReactNode }> = VK.ModalPageHeader as FC<OptionalChildren>;
 export const Spinner: FC<{ size?: string }> = VK.Spinner as FC<any>;
 export const Checkbox: FC<{ checked?: boolean; onChange?: () => void }> = VK.Checkbox as FC<any>;
+/** Alert для popout у SplitLayout (подтверждения, не window.confirm во WebView). */
+export const Alert: FC<{
+  actions?: Array<{
+    title: string;
+    mode: 'cancel' | 'destructive' | 'default';
+    autoclose?: boolean;
+    action?: () => void;
+  }>;
+  header?: ReactNode;
+  text?: ReactNode;
+  onClose?: () => void;
+  actionsLayout?: 'vertical' | 'horizontal';
+  dismissLabel?: string;
+}> = VK.Alert as FC<any>;
 
 export const ConfigProvider: FC<OptionalChildren & { appearance?: 'light' | 'dark' }> =
   VK.ConfigProvider as FC<OptionalChildren & { appearance?: 'light' | 'dark' }>;

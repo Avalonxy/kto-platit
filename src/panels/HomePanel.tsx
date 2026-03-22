@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import {
   Panel,
   Header,
@@ -11,6 +11,7 @@ import {
   IconButton,
   CellButton,
   Spinner,
+  Alert,
 } from '../ui';
 import { Icon28AddOutline, Icon24DeleteOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
@@ -35,9 +36,11 @@ type Props = {
   /** Параметры запуска VK — для синхронизации списка участников с Redis (как история). */
   launchParams?: Record<string, string> | null;
   onResult: (scenario: Scenario, winner: Participant, participants: Participant[]) => void;
+  /** Popout SplitLayout: VKUI Alert вместо window.confirm (WebView ВК). */
+  setPopout: (node: ReactNode) => void;
 };
 
-export function HomePanel({ id, launchParams = null, onResult }: Props) {
+export function HomePanel({ id, launchParams = null, onResult, setPopout }: Props) {
   const [scenario, setScenario] = useState<Scenario>(DEFAULT_SCENARIOS[0]);
   const [customTitle, setCustomTitle] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -409,9 +412,22 @@ export function HomePanel({ id, launchParams = null, onResult }: Props) {
                 after={
                   <IconButton
                     onClick={() => {
-                      if (window.confirm('Удалить участника?')) {
-                        removeParticipant(p.id);
-                      }
+                      setPopout(
+                        <Alert
+                          onClose={() => setPopout(null)}
+                          header="Удалить участника?"
+                          text={`«${p.name}» будет убран из списка.`}
+                          actions={[
+                            { title: 'Отмена', mode: 'cancel', autoclose: true },
+                            {
+                              title: 'Удалить',
+                              mode: 'destructive',
+                              autoclose: true,
+                              action: () => removeParticipant(p.id),
+                            },
+                          ]}
+                        />,
+                      );
                     }}
                     aria-label="Удалить"
                   >
