@@ -43,29 +43,38 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (activePanel !== 'history') return;
+    let cancelled = false;
+
     const loadHistory = async () => {
-      if (activePanel !== 'history') return;
+      setLoading(true);
       const localHistory = await getHistory();
+      if (cancelled) return;
+      // Сразу показать кэш — убирает «пусто» на 1–2 с и мигание при ожидании VK Storage / сети.
+      setItems(localHistory);
+
       if (launchParams?.vk_user_id && launchParams?.sign) {
-        setLoading(true);
         const result = await fetchHistory(launchParams);
+        if (cancelled) return;
         if (result === null) {
-          setItems(localHistory);
+          // Ошибка сети / 5xx / невалидный JSON — не трогаем уже показанный список (локальный кэш).
           (bridge.send as (method: string, params: object) => Promise<unknown>)(
             'VKWebAppShowSnackbar',
             { text: 'Не удалось загрузить историю с сервера, показана локальная' },
           ).catch(() => {});
         } else {
           // Только сервер: один источник для одного vk_user_id — одинаковое число записей на ПК и мобилке.
-          // Локальная история (localStorage) привязана к устройству и давала расхождение с отчётом #7103915.
           setItems(result.map(apiItemToHistoryItem));
         }
-        setLoading(false);
-      } else {
-        setItems(localHistory);
       }
+      if (!cancelled) setLoading(false);
     };
-    loadHistory();
+
+    void loadHistory();
+    return () => {
+      cancelled = true;
+      setLoading(false);
+    };
   }, [activePanel, launchParams]);
 
   return (
@@ -75,7 +84,8 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
       </PanelHeader>
 
       <Group header={items.length ? 'Последние выборы' : undefined}>
-        {loading ? (
+        {/* Полноэкранный спиннер только если ещё нечего показать — иначе список не «пропадает» при догрузке с сервера */}
+        {loading && items.length === 0 ? (
           <Div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
             <Spinner size="regular" />
           </Div>

@@ -49,13 +49,16 @@ export type HistoryApiItem = ResultResponse & { id: string };
 /**
  * Загружает историю пользователя с сервера по параметрам запуска VK.
  * Параметры должны включать vk_user_id, sign и остальные vk_* из VKWebAppGetLaunchParams.
- * При успехе возвращает массив, при ошибке (сеть, 4xx/5xx) — null, чтобы можно было показать кэш.
+ * Успех: массив (в т.ч. пустой). null — не удалось взять данные с сервера (нет params, сеть, 4xx/5xx, битый JSON);
+ * UI должен оставить уже показанный локальный кэш, а не подменять пустым списком.
  */
 export async function fetchHistory(
   launchParams: Record<string, string> | null,
 ): Promise<HistoryApiItem[] | null> {
+  // Важно: null = «с сервера не загрузили», чтобы UI не затирал кэш пустым массивом.
+  // Раньше здесь был [] при неполных params — история «мигала» и пропадала до прихода sign.
   if (!launchParams || typeof launchParams.vk_user_id !== 'string' || !launchParams.sign) {
-    return [];
+    return null;
   }
   try {
     const params: Record<string, string> = { sign: launchParams.sign };
@@ -73,7 +76,10 @@ export async function fetchHistory(
       return null;
     }
     const data = (await res.json()) as { items?: HistoryApiItem[] };
-    return Array.isArray(data.items) ? data.items : [];
+    if (!Array.isArray(data.items)) {
+      return null;
+    }
+    return data.items;
   } catch (err) {
     console.error('Error fetching history:', err instanceof Error ? err.message : String(err));
     return null;
