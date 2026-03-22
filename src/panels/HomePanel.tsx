@@ -392,6 +392,8 @@ export function HomePanel({ id, launchParams = null, onResult }: Props) {
             maxHeight: 360,
             overflowY: 'auto',
             position: 'relative',
+            // Воздух над сепаратором — как между ячейками в Group на экране результата
+            paddingBottom: participants.length > 0 ? 12 : 0,
           }}
         >
           {!participantsHydrated ? (
@@ -424,7 +426,8 @@ export function HomePanel({ id, launchParams = null, onResult }: Props) {
         <Div
           style={{
             borderTop: '1px solid var(--vkui--color_separator_secondary)',
-            padding: '10px 16px 12px',
+            // Отступ текста/полей от линии — как у блока с CTA на экране результата (paddingTop после разделителя)
+            padding: '16px 16px 14px',
             marginTop: 0,
           }}
         >
