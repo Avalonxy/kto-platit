@@ -511,21 +511,16 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
             >
               Добавить в избранное
             </Button>
-            <button
-              type="button"
-              onClick={handleDismissFavorites}
-              style={{
-                marginTop: 8,
-                padding: 0,
-                border: 0,
-                background: 'none',
-                fontSize: 13,
-                color: 'var(--vkui--color_text_secondary)',
-                cursor: 'pointer',
-              }}
-            >
-              Не показывать снова
-            </button>
+            <Div style={{ marginTop: 12 }}>
+              <Button
+                size="m"
+                stretched
+                mode="outline"
+                onClick={handleDismissFavorites}
+              >
+                Не показывать снова
+              </Button>
+            </Div>
           </Div>
         </Group>
       )}
