@@ -198,6 +198,24 @@ export default function App() {
               onOpenResult={async (item) => {
                 setResultAccessDenied(false);
                 setResultBackTarget('history');
+                const openHistoryItemLocally = () => {
+                  const scenario = {
+                    id: item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle) ?? 'custom',
+                    title: item.scenarioTitle,
+                    emoji: item.scenarioEmoji,
+                  };
+                  const participants = item.participantNames.map((name, idx) => ({
+                    id: `p-${idx}-${name.slice(0, 8)}`,
+                    name,
+                  }));
+                  setResultData({
+                    scenario,
+                    winner: item.winner,
+                    participants,
+                    serverId: item.serverId,
+                  });
+                  setActivePanel('result');
+                };
                 if (item.serverId && launchParams?.vk_user_id && launchParams?.sign) {
                   const outcome = await fetchResultById(item.serverId, launchParams);
                   if (outcome.ok) {
@@ -205,29 +223,14 @@ export default function App() {
                     setActivePanel('result');
                     return;
                   }
+                  // 403: запись в истории уже выдана этому vk_user_id через GET /api/history — показываем её,
+                  // даже если создатель не добавлял себя в vk-участники (или в Redis устаревший тип creator id).
                   if (outcome.reason === 'forbidden') {
-                    setResultAccessDenied(true);
-                    setResultData(null);
-                    setActivePanel('result');
+                    openHistoryItemLocally();
                     return;
                   }
                 }
-                const scenario = {
-                  id: item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle) ?? 'custom',
-                  title: item.scenarioTitle,
-                  emoji: item.scenarioEmoji,
-                };
-                const participants = item.participantNames.map((name, idx) => ({
-                  id: `p-${idx}-${name.slice(0, 8)}`,
-                  name,
-                }));
-                setResultData({
-                  scenario,
-                  winner: item.winner,
-                  participants,
-                  serverId: item.serverId,
-                });
-                setActivePanel('result');
+                openHistoryItemLocally();
               }}
             />
           </View>

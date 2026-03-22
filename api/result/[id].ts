@@ -105,13 +105,24 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
+  /** После JSON из Redis id могут прийти как number — иначе creator не совпадал со строкой viewer и создатель видел 403 (#7103936). */
+  const vkIdFromStored = (raw: unknown): string | null => {
+    if (raw == null || raw === '') return null;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      const n = Math.trunc(raw);
+      return n >= 0 ? String(n) : null;
+    }
+    if (typeof raw === 'string') {
+      const t = raw.trim();
+      return /^\d+$/.test(t) ? t : null;
+    }
+    return null;
+  };
+
   const participantVkIds = Array.isArray(body.participant_vk_ids)
-    ? (body.participant_vk_ids as number[]).map(String)
+    ? (body.participant_vk_ids as unknown[]).map((x) => vkIdFromStored(x)).filter((x): x is string => x !== null)
     : [];
-  const creatorVkUserId =
-    typeof body.creator_vk_user_id === 'string' && body.creator_vk_user_id
-      ? body.creator_vk_user_id
-      : null;
+  const creatorVkUserId = vkIdFromStored(body.creator_vk_user_id);
 
   const url = new URL(request.url);
   const sign = url.searchParams.get('sign');
