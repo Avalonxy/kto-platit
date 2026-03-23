@@ -31,6 +31,14 @@ import type { Participant, Scenario } from '../types';
 
 type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
 
+/** Сид для «Ещё раз» с экрана результата — восстановить сценарий и состав на главной. */
+export type HomeReplaySeed = {
+  scenario: Scenario;
+  participants: Participant[];
+  /** Для custom-сценария — текст вопроса */
+  customTitle?: string;
+};
+
 type Props = {
   id: string;
   /** Параметры запуска VK — для синхронизации списка участников с Redis (как история). */
@@ -38,9 +46,19 @@ type Props = {
   onResult: (scenario: Scenario, winner: Participant, participants: Participant[]) => void;
   /** Popout SplitLayout: VKUI Alert вместо window.confirm (WebView ВК). */
   setPopout: (node: ReactNode) => void;
+  /** Однократно подставить участников после «Ещё раз» с результата. */
+  replaySeed?: HomeReplaySeed | null;
+  onReplaySeedConsumed?: () => void;
 };
 
-export function HomePanel({ id, launchParams = null, onResult, setPopout }: Props) {
+export function HomePanel({
+  id,
+  launchParams = null,
+  onResult,
+  setPopout,
+  replaySeed = null,
+  onReplaySeedConsumed,
+}: Props) {
   const [scenario, setScenario] = useState<Scenario>(DEFAULT_SCENARIOS[0]);
   const [customTitle, setCustomTitle] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -60,6 +78,16 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
   const [participantsHydrated, setParticipantsHydrated] = useState(false);
   /** id текущего пользователя ВК (без префикса vk-) — чтобы отличать «удалил себя» от «удалил друга». */
   const selfVkIdRef = useRef<string | null>(null);
+  /** Уже подгружали список или применили replay — не повторять GET storage при сбросе replaySeed в родителе. */
+  const hasHydratedOnceRef = useRef(false);
+  const participantsRef = useRef(participants);
+  participantsRef.current = participants;
+  const participantsHydratedRef = useRef(participantsHydrated);
+  participantsHydratedRef.current = participantsHydrated;
+  const launchParamsRef = useRef(launchParams);
+  launchParamsRef.current = launchParams;
+  const onReplayConsumedRef = useRef(onReplaySeedConsumed);
+  onReplayConsumedRef.current = onReplaySeedConsumed;
 
   // id текущего пользователя ВК — для отличия «удалил себя» от «удалил друга» (даже без кэша kto_platit_user)
   useEffect(() => {
@@ -72,9 +100,35 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
       .catch(() => {});
   }, []);
 
-  // Загрузка: сначала ждём launchParams во ВК (до таймаута), затем сервер → VK Storage → localStorage
+  // Загрузка: сначала ждём launchParams во ВК (до таймаута), затем сервер → VK Storage → localStorage; либо replay с результата
   useEffect(() => {
     let cancelled = false;
+
+    if (replaySeed) {
+      void (async () => {
+        const withPhotos = await hydrateVkParticipantPhotos(replaySeed.participants);
+        if (cancelled) return;
+        setParticipants(withPhotos);
+        setScenario(replaySeed.scenario);
+        if (replaySeed.scenario.id === 'custom') {
+          setCustomTitle(replaySeed.customTitle ?? replaySeed.scenario.title ?? '');
+        }
+        setParticipantsHydrated(true);
+        hasHydratedOnceRef.current = true;
+        await setStoredParticipants(withPhotos, launchParams ?? null);
+        const vkId = selfVkIdRef.current;
+        if (vkId) setAddedMe(withPhotos.some((p) => p.id === `vk-${vkId}`));
+        onReplayConsumedRef.current?.();
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (hasHydratedOnceRef.current) {
+      return;
+    }
+
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
 
     const load = (params: Record<string, string> | null) => {
@@ -84,6 +138,9 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
         if (!cancelled) {
           setParticipants(withPhotos);
           setParticipantsHydrated(true);
+          hasHydratedOnceRef.current = true;
+          const vkId = selfVkIdRef.current;
+          if (vkId) setAddedMe(withPhotos.some((p) => p.id === `vk-${vkId}`));
         }
       });
     };
@@ -109,7 +166,7 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
       cancelled = true;
       window.clearTimeout(tid);
     };
-  }, [launchParams]);
+  }, [launchParams, replaySeed]);
 
   // Сохранение при изменении (debounce); только после гидрации, чтобы не затереть облако до чтения
   useEffect(() => {
@@ -119,6 +176,14 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
     }, 500);
     return () => clearTimeout(timer);
   }, [participants, participantsHydrated, launchParams]);
+
+  // При размонтировании панели (переход на результат) — сразу сохранить состав, иначе debounce сбрасывается и список теряется
+  useEffect(() => {
+    return () => {
+      if (!participantsHydratedRef.current) return;
+      void setStoredParticipants(participantsRef.current, launchParamsRef.current ?? null);
+    };
+  }, [launchParams]);
 
   const displayTitle = scenario.id === 'custom' ? customTitle || 'Свой вариант' : scenario.title;
 
@@ -170,6 +235,12 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
         void setSuppressAutoMeVkId(vkId);
       }
     }
+  }, []);
+
+  const clearAllParticipants = useCallback(() => {
+    setParticipants([]);
+    setAddedMe(false);
+    void setSuppressAutoMeVkId(null);
   }, []);
 
   const addManual = useCallback(() => {
@@ -281,6 +352,31 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
     }
   }, [addParticipant]);
 
+  // Если уйти из приложения во время VKWebAppGetFriends, promise не всегда завершается — сбрасываем после возврата в фон
+  const friendsBgHiddenAtRef = useRef(0);
+  useEffect(() => {
+    if (!friendsLoading) {
+      friendsBgHiddenAtRef.current = 0;
+      return;
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') {
+        friendsBgHiddenAtRef.current = Date.now();
+      }
+      if (
+        document.visibilityState === 'visible' &&
+        friendsBgHiddenAtRef.current > 0 &&
+        Date.now() - friendsBgHiddenAtRef.current > 1500
+      ) {
+        setFriendsLoading(false);
+        setFriendsError('Выбор не завершён. Нажмите «Добавить из друзей VK», чтобы открыть список снова.');
+        friendsBgHiddenAtRef.current = 0;
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [friendsLoading]);
+
   // VKWebAppGetFriends: нативное окно выбора друзей, без запроса прав (по документации VK Bridge).
   const openFriendsPicker = useCallback(async () => {
     setFriendsError(null);
@@ -291,12 +387,21 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
       setFriendsLoading(false);
       return;
     }
+    let timedOut = false;
+    const FRIENDS_TIMEOUT_MS = 180_000;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      setFriendsLoading(false);
+      setFriendsError('Время ожидания истекло. Нажмите «Добавить из друзей VK» ещё раз.');
+    }, FRIENDS_TIMEOUT_MS);
     try {
       type GetFriendsResult = { users?: Array<{ id: number; first_name?: string; last_name?: string; photo_200?: string }> };
       const data = await (bridge.send as (method: string, params: { multi: boolean }) => Promise<GetFriendsResult>)(
         'VKWebAppGetFriends',
         { multi: true },
       );
+      if (timedOut) return;
+      window.clearTimeout(timeoutId);
       const users = Array.isArray(data?.users) ? data.users : [];
       const list: Participant[] = users.map((u) => ({
         id: `vk-${u.id}`,
@@ -306,6 +411,8 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
       }));
       list.forEach(addParticipant);
     } catch (err: unknown) {
+      if (timedOut) return;
+      window.clearTimeout(timeoutId);
       const errObj = err && typeof err === 'object' ? (err as { error_type?: string }) : null;
       const errorType = errObj?.error_type;
       if (errorType === 'User denied' || errorType === 'User cancelled') {
@@ -314,7 +421,8 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
         setFriendsError('Не удалось добавить друзей. Попробуйте ещё раз или добавьте участников вручную.');
       }
     } finally {
-      setFriendsLoading(false);
+      window.clearTimeout(timeoutId);
+      if (!timedOut) setFriendsLoading(false);
     }
   }, [addParticipant]);
 
@@ -389,6 +497,35 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
         header={<Header mode="secondary">Участники ({participants.length})</Header>}
         description="Минимум 2 человека"
       >
+        {participantsHydrated && participants.length > 0 ? (
+          <Div style={{ padding: '4px 16px 0' }}>
+            <Button
+              size="m"
+              mode="tertiary"
+              stretched
+              onClick={() =>
+                setPopout(
+                  <Alert
+                    onClose={() => setPopout(null)}
+                    header="Очистить список?"
+                    text="Все участники будут удалены из жеребьёвки."
+                    actions={[
+                      { title: 'Отмена', mode: 'cancel', autoclose: true },
+                      {
+                        title: 'Очистить всё',
+                        mode: 'destructive',
+                        autoclose: true,
+                        action: () => clearAllParticipants(),
+                      },
+                    ]}
+                  />,
+                )
+              }
+            >
+              Очистить список
+            </Button>
+          </Div>
+        ) : null}
         {/* Только список в скролле — без лишнего paddingBottom/sticky, иначе под описанием огромный зазор до блока добавления */}
         <div
           style={{
@@ -447,8 +584,8 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
             marginTop: 0,
           }}
         >
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <Input
                 placeholder="Имя участника"
                 value={manualName}
@@ -459,9 +596,21 @@ export function HomePanel({ id, launchParams = null, onResult, setPopout }: Prop
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && participantsHydrated && addManual()}
                 status={manualNameError ? 'error' : undefined}
-                bottom={manualNameError || undefined}
                 maxLength={100}
               />
+              {manualNameError ? (
+                <div
+                  role="alert"
+                  style={{
+                    marginTop: 8,
+                    fontSize: 13,
+                    lineHeight: 1.35,
+                    color: 'var(--vkui--color_text_negative, #e64646)',
+                  }}
+                >
+                  {manualNameError}
+                </div>
+              ) : null}
             </div>
             <IconButton onClick={addManual} disabled={!participantsHydrated} aria-label="Добавить">
               <Icon28AddOutline />

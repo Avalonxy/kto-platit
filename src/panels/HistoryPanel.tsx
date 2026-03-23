@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import bridge from '@vkontakte/vk-bridge';
-import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button, Spinner } from '../ui';
+import { Panel, PanelHeader, Group, SimpleCell, Avatar, Div, Button, Spinner, Header } from '../ui';
 import { getScenarioIdByTitle } from '../constants';
 import { getHistory } from '../utils/history';
 import { hydrateHistoryWinners } from '../utils/hydrateVkPhotos';
@@ -89,7 +89,21 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
         История
       </PanelHeader>
 
-      <Group header={items.length ? 'Последние выборы' : undefined}>
+      <Group
+        header={
+          items.length ? (
+            <Div
+              style={{
+                paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))',
+                paddingRight: 'max(16px, env(safe-area-inset-right, 0px))',
+                paddingTop: 4,
+              }}
+            >
+              <Header mode="secondary">Последние выборы</Header>
+            </Div>
+          ) : undefined
+        }
+      >
         {/* Полноэкранный спиннер только если ещё нечего показать — иначе список не «пропадает» при догрузке с сервера */}
         {loading && items.length === 0 ? (
           <Div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
@@ -103,7 +117,13 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
           items.map((item) => (
             <SimpleCell
               key={item.id}
-              before={<Avatar size={40} src={item.winner.photo} />}
+              multiline
+              before={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ScenarioIcon scenarioId={item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle)} size={24} />
+                  <Avatar size={40} src={item.winner.photo} />
+                </div>
+              }
               subtitle={`${(() => {
                 const names = item.participantNames.join(', ');
                 if (names.length > 100) {
@@ -113,12 +133,31 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
               })()} · ${formatDate(item.date)}`}
               onClick={() => onOpenResult?.(item)}
             >
-              <span style={{ marginRight: 8, display: 'inline-flex', alignItems: 'center' }}>
-                <ScenarioIcon scenarioId={item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle)} size={24} />
-              </span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', minWidth: 0 }}>
-                {item.scenarioTitle} → {item.winner.name.length > 50 ? item.winner.name.slice(0, 47) + '...' : item.winner.name}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, width: '100%' }}>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 16,
+                    lineHeight: 1.3,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {item.scenarioTitle}
+                </span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    color: 'var(--vkui--color_text_secondary)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Победитель: {item.winner.name}
+                </span>
+              </div>
             </SimpleCell>
           ))
         )}

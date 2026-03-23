@@ -23,6 +23,8 @@ type Props = {
   /** Просмотр по ссылке, но пользователь не участник жеребьёвки — показать сообщение вместо результата. */
   accessDenied?: boolean;
   onBack: () => void;
+  /** Повторить жеребьёвку: таб «Жеребьёвка» с тем же составом (если не передан — как «Назад»). */
+  onPlayAgain?: () => void;
 };
 
 const FAVORITES_STORAGE_KEY = 'kto-platit_favorites';
@@ -212,7 +214,7 @@ function getFavoritesStatus(): FavoritesStatus {
   return null;
 }
 
-export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
+export function ResultPanel({ id, result, accessDenied, onBack, onPlayAgain }: Props) {
   const [favoritesStatus, setFavoritesStatus] = useState<FavoritesStatus>(getFavoritesStatus);
   const [confettiData, setConfettiData] = useState<object | null>(null);
   const [confettiVisible, setConfettiVisible] = useState(true);
@@ -490,7 +492,7 @@ export function ResultPanel({ id, result, accessDenied, onBack }: Props) {
           </Button>
         </Div>
         <Div>
-          <Button size="l" stretched mode="secondary" onClick={onBack}>
+          <Button size="l" stretched mode="secondary" onClick={onPlayAgain ?? onBack}>
             Ещё раз
           </Button>
         </Div>

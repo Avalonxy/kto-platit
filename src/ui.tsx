@@ -22,8 +22,8 @@ export const Group: FC<{ header?: ReactNode; children?: ReactNode; description?:
 export const Div: FC<{ children?: ReactNode; style?: CSSProperties }> = VK.Div as FC<{ children?: ReactNode; style?: CSSProperties }>;
 export const Header: FC<{ mode?: string; children?: ReactNode; size?: string }> = VK.Header as FC<{ mode?: string; children?: ReactNode; size?: string }>;
 export const SimpleCell: FC<{
-  children?: ReactNode; key?: string; before?: ReactNode; after?: ReactNode; subtitle?: string;
-  onClick?: () => void; selected?: boolean;
+  children?: ReactNode; key?: string; before?: ReactNode; after?: ReactNode; subtitle?: ReactNode;
+  onClick?: () => void; selected?: boolean; multiline?: boolean;
 }> = VK.SimpleCell as FC<any>;
 export const Button: FC<{
   children?: ReactNode; size?: 'l' | 'm' | 's'; stretched?: boolean; mode?: string;

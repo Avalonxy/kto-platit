@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef, type ReactNode } from 'react';
+import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
 import bridge from '@vkontakte/vk-bridge';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from './ui';
 import { Icon28UsersOutline, Icon28StoryOutline } from '@vkontakte/icons';
 import { Analytics } from '@vercel/analytics/react';
-import { HomePanel } from './panels/HomePanel';
+import { HomePanel, type HomeReplaySeed } from './panels/HomePanel';
 import { ResultPanel } from './panels/ResultPanel';
 import { HistoryPanel } from './panels/HistoryPanel';
 import { saveLastResult, getLastResult, getParticipantVkIds } from './utils/lastResult';
@@ -45,6 +45,8 @@ export default function App() {
   const [popout, setPopout] = useState<ReactNode>(null);
   /** Отмена устаревшего догруза результата из истории при быстром переключении записей. */
   const historyResultFetchGenRef = useRef(0);
+  /** Сид главной после «Ещё раз» с экрана результата. */
+  const [replaySeed, setReplaySeed] = useState<HomeReplaySeed | null>(null);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -180,16 +182,36 @@ export default function App() {
     }
   };
 
+  const handlePlayAgain = useCallback(() => {
+    if (!resultData) return;
+    setReplaySeed({
+      scenario: resultData.scenario,
+      participants: resultData.participants,
+      customTitle: resultData.scenario.id === 'custom' ? resultData.scenario.title : undefined,
+    });
+    setResultAccessDenied(false);
+    setResultBackTarget('home');
+    setActivePanel('home');
+  }, [resultData]);
+
   return (
     <AppRoot>
       <SplitLayout popout={popout}>
         <SplitCol>
           <View activePanel={activePanel}>
-            <HomePanel id="home" launchParams={launchParams} onResult={openResult} setPopout={setPopout} />
+            <HomePanel
+              id="home"
+              launchParams={launchParams}
+              onResult={openResult}
+              setPopout={setPopout}
+              replaySeed={replaySeed}
+              onReplaySeedConsumed={() => setReplaySeed(null)}
+            />
             <ResultPanel
               id="result"
               result={resultData}
               accessDenied={resultAccessDenied}
+              onPlayAgain={handlePlayAgain}
               onBack={() => {
                 setResultAccessDenied(false);
                 setActivePanel(resultBackTarget);
