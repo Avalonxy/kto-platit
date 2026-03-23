@@ -121,7 +121,7 @@ export function HistoryPanel({ id, activePanel, launchParams, onBack, onOpenResu
               before={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ScenarioIcon scenarioId={item.scenarioId ?? getScenarioIdByTitle(item.scenarioTitle)} size={24} />
-                  <Avatar size={40} src={item.winner.photo} />
+                  <Avatar size={40} src={item.winner.photo} style={{ marginRight: 8 }} />
                 </div>
               }
               subtitle={`${(() => {
