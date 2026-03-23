@@ -257,15 +257,12 @@ export function HomePanel({
       setManualNameError('Имя слишком длинное (макс. 100 символов)');
       return;
     }
-    if (participants.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
-      setManualNameError('Участник с таким именем уже добавлен');
-      return;
-    }
     addParticipant({
       id: `manual-${Date.now()}-${name}`,
       name,
       isFromVk: false,
     });
+    setManualNameError(null);
     setManualName('');
   }, [manualName, addParticipant]);
 

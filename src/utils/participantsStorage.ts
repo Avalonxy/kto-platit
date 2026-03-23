@@ -56,6 +56,21 @@ function parseLocalParticipants(raw: string): Participant[] {
   }
 }
 
+function parseLocalParticipantsOrNull(raw: string): Participant[] | null {
+  // Возвращаем [] только если JSON успешно распарсился как массив (валидный, но пустой).
+  // Если JSON битый/не массив — возвращаем null, чтобы не затереть серверные данные.
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter(
+      (x): x is Participant =>
+        x != null && typeof x === 'object' && typeof (x as Participant).id === 'string' && typeof (x as Participant).name === 'string',
+    );
+  } catch {
+    return null;
+  }
+}
+
 /** Обёртка для VK: отличить от старых форматов. */
 type VkParticipantsPayload = { v: 1; i: SlimRow[] };
 
@@ -112,6 +127,27 @@ export async function getStoredParticipants(
   launchParams?: Record<string, string> | null,
 ): Promise<Participant[]> {
   if (launchParams?.sign && launchParams.vk_user_id) {
+    // Важно для UX: пользователь может быстро перейти в «Историю» и обратно.
+    // Серверная запись (Redis) выполняется асинхронно, поэтому при быстром возврате GET
+    // может отдать старое значение. Локальный список сохраняется сразу — покажем его первым.
+    try {
+      const raw = localStorage.getItem(LOCAL_PARTICIPANTS_KEY);
+      if (raw) {
+        const localList = parseLocalParticipantsOrNull(raw);
+        if (localList !== null) {
+          // Параллельно продолжим синхронизацию с сервером, чтобы данные со временем выровнялись.
+          void fetchParticipantsFromServer(launchParams).then((serverList) => {
+            if (serverList !== null) {
+              trySetLocalStorage(LOCAL_PARTICIPANTS_KEY, JSON.stringify(serverList));
+            }
+          });
+          return localList;
+        }
+      }
+    } catch {
+      /* ignore and fallback to server/VK storage */
+    }
+
     const serverList = await fetchParticipantsFromServer(launchParams);
     if (serverList !== null) {
       try {
