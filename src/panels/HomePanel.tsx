@@ -30,6 +30,17 @@ import { hydrateVkParticipantPhotos } from '../utils/hydrateVkPhotos';
 import type { Participant, Scenario } from '../types';
 
 type ChoosingPhase = 'idle' | 'thinking' | 'reveal';
+type FriendLike = {
+  id?: number | string;
+  uid?: number | string;
+  first_name?: string;
+  last_name?: string;
+  firstName?: string;
+  lastName?: string;
+  photo_200?: string;
+  photo_100?: string;
+  photo?: string;
+};
 
 /** Сид для «Ещё раз» с экрана результата — восстановить сценарий и состав на главной. */
 export type HomeReplaySeed = {
@@ -313,6 +324,47 @@ export function HomePanel({
 
   const canChoose = participants.length >= 2 && choosingPhase === 'idle' && participantsHydrated;
 
+  // В разных клиентах VK Bridge ответ VKWebAppGetFriends может приходить в разных формах:
+  // users / response.items / plain array / selected_users. Нормализуем в единый список.
+  const extractFriendsFromPickerResult = useCallback((raw: unknown): Participant[] => {
+    const asObject = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
+    const candidates: unknown[] = [];
+    if (Array.isArray(raw)) candidates.push(raw);
+    if (asObject) {
+      if (Array.isArray(asObject.users)) candidates.push(asObject.users);
+      if (Array.isArray(asObject.selected_users)) candidates.push(asObject.selected_users);
+      if (Array.isArray(asObject.friends)) candidates.push(asObject.friends);
+      const response = asObject.response;
+      if (response && typeof response === 'object') {
+        const ro = response as Record<string, unknown>;
+        if (Array.isArray(ro.items)) candidates.push(ro.items);
+        if (Array.isArray(ro.users)) candidates.push(ro.users);
+      }
+    }
+
+    const merged = candidates.flatMap((c) => (Array.isArray(c) ? c : []));
+    const byId = new Map<string, Participant>();
+    for (const item of merged) {
+      if (!item || typeof item !== 'object') continue;
+      const f = item as FriendLike;
+      const rawId = f.id ?? f.uid;
+      const idNum = typeof rawId === 'string' ? Number(rawId) : rawId;
+      if (typeof idNum !== 'number' || !Number.isFinite(idNum) || idNum <= 0) continue;
+      const first = (f.first_name ?? f.firstName ?? '').toString().trim();
+      const last = (f.last_name ?? f.lastName ?? '').toString().trim();
+      const name = [first, last].filter(Boolean).join(' ').trim() || `Пользователь ${idNum}`;
+      const photo = (f.photo_200 ?? f.photo_100 ?? f.photo) || undefined;
+      const vkId = `vk-${idNum}`;
+      byId.set(vkId, {
+        id: vkId,
+        name,
+        photo: typeof photo === 'string' ? photo : undefined,
+        isFromVk: true,
+      });
+    }
+    return [...byId.values()];
+  }, []);
+
   // VKWebAppGetUserInfo: добавить текущего пользователя (себя) в участники.
   const addMe = useCallback(async () => {
     setFriendsError(null);
@@ -392,20 +444,17 @@ export function HomePanel({
       setFriendsError('Время ожидания истекло. Нажмите «Добавить из друзей VK» ещё раз.');
     }, FRIENDS_TIMEOUT_MS);
     try {
-      type GetFriendsResult = { users?: Array<{ id: number; first_name?: string; last_name?: string; photo_200?: string }> };
-      const data = await (bridge.send as (method: string, params: { multi: boolean }) => Promise<GetFriendsResult>)(
+      const data = await (bridge.send as (method: string, params: { multi: boolean }) => Promise<unknown>)(
         'VKWebAppGetFriends',
         { multi: true },
       );
       if (timedOut) return;
       window.clearTimeout(timeoutId);
-      const users = Array.isArray(data?.users) ? data.users : [];
-      const list: Participant[] = users.map((u) => ({
-        id: `vk-${u.id}`,
-        name: [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || 'Без имени',
-        photo: u.photo_200,
-        isFromVk: true,
-      }));
+      const list = extractFriendsFromPickerResult(data);
+      if (list.length === 0) {
+        setFriendsError('Не удалось прочитать выбранных друзей. Попробуйте выбрать друзей ещё раз.');
+        return;
+      }
       list.forEach(addParticipant);
     } catch (err: unknown) {
       if (timedOut) return;
@@ -421,7 +470,7 @@ export function HomePanel({
       window.clearTimeout(timeoutId);
       if (!timedOut) setFriendsLoading(false);
     }
-  }, [addParticipant]);
+  }, [addParticipant, extractFriendsFromPickerResult]);
 
   return (
     <Panel id={id}>
