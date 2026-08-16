@@ -43,6 +43,8 @@ export default function App() {
   const [resultAccessDenied, setResultAccessDenied] = useState(false);
   /** VKUI Alert / прочие popout (SplitLayout) — не использовать window.confirm во WebView ВК. */
   const [popout, setPopout] = useState<ReactNode>(null);
+  /** Флаг готовности моста VK (чтобы не было ошибки frameId при SetLocation) */
+  const [isBridgeReady, setIsBridgeReady] = useState(false);
   /** Отмена устаревшего догруза результата из истории при быстром переключении записей. */
   const historyResultFetchGenRef = useRef(0);
   /** Сид главной после «Ещё раз» с экрана результата. */
@@ -52,21 +54,33 @@ export default function App() {
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
-    if (!(bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false)) return;
-    (bridge.send as (method: string) => Promise<Record<string, string>>)('VKWebAppGetLaunchParams')
-      .then((p: unknown) => {
+    const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (!inVK) {
+      setIsBridgeReady(true);
+      return;
+    }
+
+    async function initBridge() {
+      try {
+        await bridge.send('VKWebAppInit');
+        setIsBridgeReady(true);
+        
+        const p = await (bridge.send as (method: string) => Promise<Record<string, string>>)('VKWebAppGetLaunchParams');
         if (p && typeof p === 'object') setLaunchParams(p as Record<string, string>);
-      })
-      .catch((err: unknown) => {
-        console.error('Failed to get VK launch params:', err);
-      });
+      } catch (err) {
+        console.error('Failed to init VK bridge:', err);
+        setIsBridgeReady(true); // Разблокируем интерфейс даже при ошибке
+      }
+    }
+    initBridge();
   }, []);
 
-  // Сообщаем VK, что приложение готово — скрывается экран загрузки (VKWebAppInit уже в main.tsx)
+  // Сообщаем VK, что приложение готово — скрывается экран загрузки
   useEffect(() => {
-    const t = requestAnimationFrame(() => sendVKWebAppReady());
-    return () => cancelAnimationFrame(t);
-  }, []);
+    if (isBridgeReady) {
+      sendVKWebAppReady();
+    }
+  }, [isBridgeReady]);
 
   // Хеш в URL: только серверный id (#result-<id>), чтобы по ссылке работала проверка участников. Пока id нет — #result.
   useEffect(() => {
@@ -90,18 +104,14 @@ export default function App() {
           : activePanel;
     
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
-    if (inVK && launchParams) {
-      // Задержка перед VKWebAppSetLocation: даём VK время на инициализацию frameId
-      // Без этого получаем "Cannot read properties of null (reading 'frameId')"
-      setTimeout(() => {
-        (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
-          'VKWebAppSetLocation',
-          { location },
-        ).catch((err) => {
-          // Игнорируем ошибки - ВК может ещё не быть готов
-          console.debug('VKWebAppSetLocation:', err);
-        });
-      }, 300);
+    if (inVK && launchParams && isBridgeReady) {
+      (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
+        'VKWebAppSetLocation',
+        { location },
+      ).catch((err) => {
+        // Игнорируем ошибки - ВК может ещё не быть готов
+        console.debug('VKWebAppSetLocation failed:', err);
+      });
     } else if (typeof window !== 'undefined') {
       // Не затираем входящий фрагмент #result-... при первом заходе из ссылки.
       // Для главного экрана без результата оставляем исходный hash.
