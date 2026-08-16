@@ -101,7 +101,7 @@ export default function App() {
           // Игнорируем ошибки - ВК может ещё не быть готов
           console.debug('VKWebAppSetLocation:', err);
         });
-      }, 150);
+      }, 300);
     } else if (typeof window !== 'undefined') {
       // Не затираем входящий фрагмент #result-... при первом заходе из ссылки.
       // Для главного экрана без результата оставляем исходный hash.
