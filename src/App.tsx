@@ -50,7 +50,7 @@ export default function App() {
   /** Сид главной после «Ещё раз» с экрана результата. */
   const [replaySeed, setReplaySeed] = useState<HomeReplaySeed | null>(null);
   /** Флаг первого рендера - не перезаписываем location при инициализации */
-  //const isInitialMount = useRef(true);
+  const isInitialMount = useRef(true);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -83,43 +83,43 @@ export default function App() {
   }, [isBridgeReady]);
 
   // Хеш в URL: только серверный id (#result-<id>), чтобы по ссылке работала проверка участников. Пока id нет — #result.
-  //useEffect(() => {
+  useEffect(() => {
     // Пропускаем обновление location при первом рендере на home панели,
     // чтобы не затереть входящий хэш от ВК (например, реферальную ссылку #result-xxx)
-//    if (isInitialMount.current) {
+    if (isInitialMount.current) {
       // Только для первого рендера: не трогаем location совсем
-//      if (activePanel === 'home' && !resultData) {
-//        isInitialMount.current = false;
- //       return;
-//      }
+      if (activePanel === 'home' && !resultData) {
+        isInitialMount.current = false;
+        return;
+        }
       // Если пришли сразу на result (открытие по ссылке) - тоже пропускаем
-//      isInitialMount.current = false;
- //   }
+      isInitialMount.current = false;
+    }
 
-//    const location =
-//      activePanel === 'result' && resultData?.serverId
-//        ? `result-${resultData.serverId}`
-//        : activePanel === 'result' && resultData
-//          ? 'result'
-//          : activePanel;
-//    
-//    const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
-//    if (inVK && launchParams && isBridgeReady) {
-//      (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
-//        'VKWebAppSetLocation',
-//        { location },
-//      ).catch((err) => {
-//        // Игнорируем ошибки - ВК может ещё не быть готов
-//        console.debug('VKWebAppSetLocation failed:', err);
-//      });
-//    } else if (typeof window !== 'undefined') {
+    const location =
+      activePanel === 'result' && resultData?.serverId
+        ? `result-${resultData.serverId}`
+        : activePanel === 'result' && resultData
+          ? 'result'
+          : activePanel;
+    
+    const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+    if (inVK && launchParams && isBridgeReady) {
+      (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
+        'VKWebAppSetLocation',
+        { location },
+      ).catch((err) => {
+      // Игнорируем ошибки - ВК может ещё не быть готов
+        console.debug('VKWebAppSetLocation failed:', err);
+      });
+    } else if (typeof window !== 'undefined') {
       // Не затираем входящий фрагмент #result-... при первом заходе из ссылки.
       // Для главного экрана без результата оставляем исходный hash.
-//      if (activePanel === 'result' && resultData) {
-//        window.history.replaceState(null, '', `#${location}`);
-//      }
-//    }
-//  }, [activePanel, resultData, launchParams]);
+      if (activePanel === 'result' && resultData) {
+        window.history.replaceState(null, '', `#${location}`);
+      }
+    }
+  }, [activePanel, resultData, launchParams]);
 
   // Открытие по ссылке: #result-<id> (сервер, с проверкой участников) или #result — последний результат (fallback).
   // Зависимость от launchParams: при первом заходе подгружаем параметры и повторно запрашиваем с подписью.
