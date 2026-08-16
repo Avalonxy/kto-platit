@@ -47,6 +47,8 @@ export default function App() {
   const historyResultFetchGenRef = useRef(0);
   /** Сид главной после «Ещё раз» с экрана результата. */
   const [replaySeed, setReplaySeed] = useState<HomeReplaySeed | null>(null);
+  /** Флаг первого рендера - не перезаписываем location при инициализации */
+  const isInitialMount = useRef(true);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
@@ -68,6 +70,14 @@ export default function App() {
 
   // Хеш в URL: только серверный id (#result-<id>), чтобы по ссылке работала проверка участников. Пока id нет — #result.
   useEffect(() => {
+    // Пропускаем обновление location при первом рендере на home панели,
+    // чтобы не затереть входящий хэш от ВК (например, реферальную ссылку #result-xxx)
+    if (isInitialMount.current && activePanel === 'home' && !resultData) {
+      isInitialMount.current = false;
+      return;
+    }
+    isInitialMount.current = false;
+
     const location =
       activePanel === 'result' && resultData?.serverId
         ? `result-${resultData.serverId}`
@@ -76,10 +86,17 @@ export default function App() {
           : activePanel;
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
     if (inVK) {
-      (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
-        'VKWebAppSetLocation',
-        { location },
-      ).catch(() => {});
+      // Добавляем небольшую задержку, чтобы ВК успел инициализировать фрейм
+      const timeoutId = setTimeout(() => {
+        (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
+          'VKWebAppSetLocation',
+          { location },
+        ).catch((err) => {
+          console.warn('VKWebAppSetLocation failed:', err);
+        });
+      }, 100);
+      // Очищаем таймаут при размонтировании
+      return () => clearTimeout(timeoutId);
     } else if (typeof window !== 'undefined') {
       // Не затираем входящий фрагмент #result-... при первом заходе из ссылки.
       // Для главного экрана без результата оставляем исходный hash.
@@ -100,6 +117,11 @@ export default function App() {
       if (isShareResultFragment(raw)) {
         const payload = getPayloadFromFragment(raw);
         if (payload && looksLikeServerId(payload)) {
+          // Пропускаем запрос пока нет launchParams во ВК (иначе 2 запроса: без подписи + с подписью)
+          const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
+          if (inVK && !launchParams) {
+            return; // Дождёмся прихода launchParams, эффект перезапустится
+          }
           const outcome = await fetchResultById(payload, launchParams);
           if (outcome.ok) {
             setResultAccessDenied(false);
