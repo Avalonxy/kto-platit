@@ -72,11 +72,15 @@ export default function App() {
   useEffect(() => {
     // Пропускаем обновление location при первом рендере на home панели,
     // чтобы не затереть входящий хэш от ВК (например, реферальную ссылку #result-xxx)
-    if (isInitialMount.current && activePanel === 'home' && !resultData) {
+    if (isInitialMount.current) {
+      // Только для первого рендера: не трогаем location совсем
+      if (activePanel === 'home' && !resultData) {
+        isInitialMount.current = false;
+        return;
+      }
+      // Если пришли сразу на result (открытие по ссылке) - тоже пропускаем
       isInitialMount.current = false;
-      return;
     }
-    isInitialMount.current = false;
 
     const location =
       activePanel === 'result' && resultData?.serverId
@@ -84,19 +88,20 @@ export default function App() {
         : activePanel === 'result' && resultData
           ? 'result'
           : activePanel;
+    
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
     if (inVK) {
-      // Добавляем небольшую задержку, чтобы ВК успел инициализировать фрейм
-      const timeoutId = setTimeout(() => {
+      // Отправляем VKWebAppSetLocation только после полной инициализации ВК
+      // Проверяем наличие launchParams как индикатор готовности
+      if (launchParams) {
         (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
           'VKWebAppSetLocation',
           { location },
         ).catch((err) => {
-          console.warn('VKWebAppSetLocation failed:', err);
+          // Игнорируем ошибки - ВК может ещё не быть готов
+          console.debug('VKWebAppSetLocation:', err);
         });
-      }, 100);
-      // Очищаем таймаут при размонтировании
-      return () => clearTimeout(timeoutId);
+      }
     } else if (typeof window !== 'undefined') {
       // Не затираем входящий фрагмент #result-... при первом заходе из ссылки.
       // Для главного экрана без результата оставляем исходный hash.
@@ -104,7 +109,7 @@ export default function App() {
         window.history.replaceState(null, '', `#${location}`);
       }
     }
-  }, [activePanel, resultData]);
+  }, [activePanel, resultData, launchParams]);
 
   // Открытие по ссылке: #result-<id> (сервер, с проверкой участников) или #result — последний результат (fallback).
   // Зависимость от launchParams: при первом заходе подгружаем параметры и повторно запрашиваем с подписью.
