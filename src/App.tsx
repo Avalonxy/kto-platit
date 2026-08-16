@@ -50,7 +50,7 @@ export default function App() {
   /** Сид главной после «Ещё раз» с экрана результата. */
   const [replaySeed, setReplaySeed] = useState<HomeReplaySeed | null>(null);
   /** Флаг первого рендера - не перезаписываем location при инициализации */
-  const isInitialMount = useRef(true);
+  //const isInitialMount = useRef(true);
 
   // Параметры запуска VK — для истории с API и привязки результата к пользователю
   useEffect(() => {
