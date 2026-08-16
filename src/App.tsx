@@ -90,10 +90,10 @@ export default function App() {
           : activePanel;
     
     const inVK = bridge.isEmbedded?.() ?? bridge.isWebView?.() ?? false;
-    if (inVK) {
-      // Отправляем VKWebAppSetLocation только после полной инициализации ВК
-      // Проверяем наличие launchParams как индикатор готовности
-      if (launchParams) {
+    if (inVK && launchParams) {
+      // Задержка перед VKWebAppSetLocation: даём VK время на инициализацию frameId
+      // Без этого получаем "Cannot read properties of null (reading 'frameId')"
+      setTimeout(() => {
         (bridge.send as (method: string, params: { location: string }) => Promise<unknown>)(
           'VKWebAppSetLocation',
           { location },
@@ -101,7 +101,7 @@ export default function App() {
           // Игнорируем ошибки - ВК может ещё не быть готов
           console.debug('VKWebAppSetLocation:', err);
         });
-      }
+      }, 150);
     } else if (typeof window !== 'undefined') {
       // Не затираем входящий фрагмент #result-... при первом заходе из ссылки.
       // Для главного экрана без результата оставляем исходный hash.
