@@ -43,3 +43,32 @@
 
 /* Обеспечиваем, что фиксированные layount-элементы не выйдут за границы */
 .kto-fixed { box-sizing: border-box; max-width: 896px; }
+
+/* Стили для карточек сценариев (анимации, hover, focus) */
+.scenario-card {
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms cubic-bezier(.2,.8,.2,1), background-color 160ms;
+  will-change: transform, box-shadow;
+  transform-origin: center;
+  outline: none;
+}
+.scenario-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(16,24,40,0.08);
+}
+.scenario-card:active {
+  transform: translateY(-2px) scale(0.997);
+}
+.scenario-card:focus {
+  box-shadow: 0 0 0 3px rgba(0,119,255,0.12);
+}
+.scenario-card.selected {
+  border: 1px solid var(--vkui--color_accent, #0077FF);
+  background: rgba(0,119,255,0.04);
+}
+.scenario-card .scenario-icon {
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+}
+.scenario-card:hover .scenario-icon {
+  transform: scale(1.08);
+}
+

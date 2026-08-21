@@ -511,6 +511,8 @@ export function HomePanel({
                   mode="shadow"
                   tabIndex={0}
                   role="button"
+                  aria-pressed={selected}
+                  className={`scenario-card ${selected ? 'selected' : ''}`}
                   onClick={() => setScenario(s)}
                   onKeyDown={(e: KeyboardEvent) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -529,21 +531,22 @@ export function HomePanel({
                   }}
                 >
                   <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 48,
-                      height: 48,
-                      borderRadius: 10,
-                      background: selected ? 'var(--vkui--color_accent, #0077FF)' : 'var(--vkui--color_background_tint, #f5f7fa)',
-                      color: selected ? '#fff' : 'var(--vkui--color_icon_secondary)',
-                      flexShrink: 0,
-                      fontSize: 22,
-                    }}
-                  >
-                    <ScenarioIcon scenarioId={s.id} emoji={s.emoji} size={28} />
-                  </div>
+                                      className="scenario-icon"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 10,
+                                        background: selected ? 'var(--vkui--color_accent, #0077FF)' : 'var(--vkui--color_background_tint, #f5f7fa)',
+                                        color: selected ? '#fff' : 'var(--vkui--color_icon_secondary)',
+                                        flexShrink: 0,
+                                        fontSize: 22,
+                                      }}
+                                    >
+                                      <ScenarioIcon scenarioId={s.id} emoji={s.emoji} size={28} />
+                                    </div>
                   <div style={{ minWidth: 0, marginLeft: 6 }}>
                     <div style={{ fontSize: 15, fontWeight: selected ? 600 : 500, color: 'var(--vkui--color_text_primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {s.title}
