@@ -7,6 +7,7 @@ import {
   Icon28ShoppingCartOutline,
   Icon28MusicOutline,
   Icon28LightbulbOutline,
+  Icon28CarOutline as Icon28TaxiOutline,
 } from '@vkontakte/icons';
 
 const SCENARIO_ICONS: Record<string, FC<{ style?: React.CSSProperties }>> = {
@@ -16,6 +17,7 @@ const SCENARIO_ICONS: Record<string, FC<{ style?: React.CSSProperties }>> = {
   duty: Icon28ListCheckOutline,
   order: Icon28ShoppingCartOutline,
   music: Icon28MusicOutline,
+  taxi: Icon28TaxiOutline,
   custom: Icon28LightbulbOutline,
 };
 
