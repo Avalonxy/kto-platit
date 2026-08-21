@@ -46,6 +46,8 @@ export const IconButton: FC<{
   'aria-label'?: string;
 }> = VK.IconButton as FC<any>;
 export const CellButton: FC<{ children?: ReactNode; onClick?: () => void; disabled?: boolean }> = VK.CellButton as FC<any>;
+export const CardGrid: FC<any> = VK.CardGrid as FC<any>;
+export const Card: FC<any> = VK.Card as FC<any>;
 export const FixedLayout: FC<{ filled?: boolean; vertical?: string; children?: ReactNode }> = VK.FixedLayout as FC<any>;
 export const Spacing: FC<{ size?: number }> = VK.Spacing as FC<any>;
 export const ModalRoot: FC<{ activeModal?: string; onClose?: () => void; children?: ReactNode }> = VK.ModalRoot as FC<any>;

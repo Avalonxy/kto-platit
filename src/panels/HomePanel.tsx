@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, useRef, type ReactNode, type KeyboardEvent } from 'react';
 import {
   Panel,
   Header,
@@ -12,10 +12,10 @@ import {
   CellButton,
   Spinner,
   Alert,
+  Card,
 } from '../ui';
 import { Icon28AddOutline, Icon24DeleteOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
-import { CardGrid, Card } from '@vkontakte/vkui';
 import { DEFAULT_SCENARIOS, CHOOSING_THINK_DURATION } from '../constants';
 import { addToHistory } from '../utils/history';
 import { chooseWeightedRandom } from '../utils/weightedChoice';
@@ -512,7 +512,7 @@ export function HomePanel({
                   tabIndex={0}
                   role="button"
                   onClick={() => setScenario(s)}
-                  onKeyDown={(e) => {
+                  onKeyDown={(e: KeyboardEvent) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       setScenario(s);
