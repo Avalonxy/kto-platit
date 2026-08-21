@@ -8,6 +8,21 @@ import './vk-iframe-layout.css';
 import App from './App';
 
 // Базовая инициализация моста — используем безопасную отправку, чтобы избежать падений при ошибках bridge
+// Диагностический лог, чтобы увидеть контекст выполнения внутри iframe (выводится в консоль того фрейма, где выполняется бандл)
+try {
+  console.debug('kto-platit: iframe diagnostic', {
+    inIframe: window !== window.parent,
+    // frameElement может быть null в некоторых окружениях — нормально
+    frameElement: window.frameElement,
+    referrer: document.referrer,
+    location: window.location.href,
+    userAgent: navigator.userAgent,
+  });
+} catch (e) {
+  // Логируем ошибку диагностического блока, но не мешаем дальнейшей инициализации
+  console.debug('kto-platit: iframe diagnostic error', e);
+}
+
 async function initApp() {
   try {
     const res = await safeVkBridgeSend('VKWebAppInit');
