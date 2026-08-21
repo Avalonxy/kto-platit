@@ -15,6 +15,7 @@ import {
 } from '../ui';
 import { Icon28AddOutline, Icon24DeleteOutline } from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
+import { CardGrid, Card } from '@vkontakte/vkui';
 import { DEFAULT_SCENARIOS, CHOOSING_THINK_DURATION } from '../constants';
 import { addToHistory } from '../utils/history';
 import { chooseWeightedRandom } from '../utils/weightedChoice';
@@ -494,39 +495,70 @@ export function HomePanel({
       </Group>
 
       <Group header={<Header mode="secondary">Сценарий</Header>}>
-        {DEFAULT_SCENARIOS.map((s) => {
-          const selected = scenario.id === s.id;
-          return (
-            <Div key={s.id} style={{ marginBottom: 4 }}>
-            <SimpleCell
-              before={
-                <span
+        <Div style={{ padding: '8px 16px 0' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 8,
+            }}
+          >
+            {DEFAULT_SCENARIOS.map((s) => {
+              const selected = scenario.id === s.id;
+              return (
+                <Card
+                  key={s.id}
+                  mode="shadow"
+                  tabIndex={0}
+                  role="button"
+                  onClick={() => setScenario(s)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setScenario(s);
+                    }
+                  }}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 44,
-                    height: 44,
-                    marginRight: 12,
                     borderRadius: 12,
-                    background: selected
-                      ? 'var(--vkui--color_accent, #0077FF)'
-                      : 'var(--vkui--color_background_secondary, #f0f0f0)',
-                    color: selected ? '#fff' : 'var(--vkui--color_icon_secondary)',
+                    cursor: 'pointer',
+                    minHeight: 96,
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 12,
+                    boxSizing: 'border-box',
                   }}
                 >
-                  <ScenarioIcon scenarioId={s.id} emoji={s.emoji} size={28} />
-                </span>
-              }
-              subtitle={s.id === 'custom' ? 'Введите свой вопрос ниже' : undefined}
-              onClick={() => setScenario(s)}
-              selected={selected}
-            >
-              {selected ? <strong>{s.title}</strong> : s.title}
-            </SimpleCell>
-            </Div>
-          );
-        })}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 48,
+                      height: 48,
+                      borderRadius: 10,
+                      background: selected ? 'var(--vkui--color_accent, #0077FF)' : 'var(--vkui--color_background_tint, #f5f7fa)',
+                      color: selected ? '#fff' : 'var(--vkui--color_icon_secondary)',
+                      flexShrink: 0,
+                      fontSize: 22,
+                    }}
+                  >
+                    <ScenarioIcon scenarioId={s.id} emoji={s.emoji} size={28} />
+                  </div>
+                  <div style={{ minWidth: 0, marginLeft: 6 }}>
+                    <div style={{ fontSize: 15, fontWeight: selected ? 600 : 500, color: 'var(--vkui--color_text_primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {s.title}
+                    </div>
+                    {s.id === 'custom' ? (
+                      <div style={{ fontSize: 13, color: 'var(--vkui--color_text_secondary)', marginTop: 4 }}>
+                        Введите свой вопрос ниже
+                      </div>
+                    ) : null}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </Div>
         {scenario.id === 'custom' && (
           <Div>
             <Input
