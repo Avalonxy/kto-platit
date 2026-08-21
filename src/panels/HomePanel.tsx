@@ -64,6 +64,8 @@ type Props = {
 };
 
 export function HomePanel({
+  // Log scenarios at mount to help debug missing tiles in embedding environments (VK iframe caching)
+
   id,
   launchParams = null,
   onResult,
@@ -72,6 +74,8 @@ export function HomePanel({
   onReplaySeedConsumed,
 }: Props) {
   const [scenario, setScenario] = useState<Scenario>(DEFAULT_SCENARIOS[0]);
+
+
   const [customTitle, setCustomTitle] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [manualName, setManualName] = useState('');
