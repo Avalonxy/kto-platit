@@ -1,17 +1,45 @@
 /**
- * Ограничения размера iframe VK (dev.vk.com):
- * минимум 630×600 px, максимум 1000×4050 px (обычный режим).
- * Ограничиваем max-width контейнера; min-height для устойчивой вёрстки при минимальной высоте.
+ * Ограничения и адаптация под целевой размер 896×700 (desktop mini-app iframe).
+ * Подгоняем корневой контейнер так, чтобы UI аккуратно влезал в указанные размеры.
  */
 #root {
-  max-width: 1000px;
-  min-height: 600px;
+  /* Ограничиваем ширину и высоту под целевой размер */
+  width: 100%;
+  max-width: 896px;
+  box-sizing: border-box;
+  /* Жёсткая высота 700px — гарантирует, что контент укладывается в iframe VK */
+  min-height: 700px;
+  max-height: 700px;
+  height: 700px;
   margin-left: auto;
   margin-right: auto;
-  box-sizing: border-box;
+  overflow: auto; /* если что-то выходит — появляется полоса прокрутки внутри фрейма */
+  padding: 8px; /* немного внутреннего отступа для аккуратности */
+}
+
+/* Небольшая адаптация шрифтов/отступов для узкого контейнера */
+@media (max-width: 896px) {
+  #root {
+    font-size: 14px;
+  }
+  /* Уменьшаем внутренние отступы для панелей, чтобы вместилось больше */
+  .vkuiPanel, .vkuiSplitCol__in, .vkuiSplitLayout__col {
+    padding: 6px !important;
+  }
 }
 
 /* Hover effect for Tabbar items */
 .vkuiTabbarItem:hover {
-  opacity: 0.8;
+  opacity: 0.9;
 }
+
+/* Снижение размеров иконок в tabbar на целевом разрешении */
+@media (min-width: 700px) {
+  .vkuiTabbar__item > svg, .vkuiTabbarItem__icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+}
+
+/* Обеспечиваем, что фиксированные layount-элементы не выйдут за границы */
+.kto-fixed { box-sizing: border-box; max-width: 896px; }
