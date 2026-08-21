@@ -1,15 +1,11 @@
-import bridge from '@vkontakte/vk-bridge';
+import { safeVkBridgeSend } from './safeVkBridge';
 
 /**
  * Отправляет VKWebAppReady — клиент VK скрывает экран загрузки.
  * На Android WebView иногда срабатывает только после повторной отправки.
+ * Используем безопасную обёртку, чтобы избежать синхронных ошибок внутри vk-bridge.
  */
 export function sendVKWebAppReady(): void {
-  try {
-    if (typeof bridge?.send === 'function') {
-      (bridge.send as (method: string) => Promise<unknown>)('VKWebAppReady').catch(() => {});
-    }
-  } catch {
-    // bridge недоступен (открыто не в VK)
-  }
+  // fire-and-forget через безопасный wrapper
+  void safeVkBridgeSend('VKWebAppReady');
 }

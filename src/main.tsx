@@ -1,21 +1,24 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import bridge from '@vkontakte/vk-bridge';
 import { ErrorBoundary } from './ErrorBoundary';
 import { VKConfigProviderWrapper } from './VKConfigProvider';
-import { sendVKWebAppReady } from './utils/vkReady';
+import { safeVkBridgeSend } from './utils/safeVkBridge';
 import '@vkontakte/vkui/dist/vkui.css';
 import './vk-iframe-layout.css';
 import App from './App';
 
-// Базовая инициализация моста
+// Базовая инициализация моста — используем безопасную отправку, чтобы избежать падений при ошибках bridge
 async function initApp() {
   try {
-    await bridge.send('VKWebAppInit');
+    const res = await safeVkBridgeSend('VKWebAppInit');
+    if (!res.ok) {
+      console.error('VK Bridge Init Error:', res.error);
+    }
   } catch (e) {
-    console.error('VK Bridge Init Error:', e);
+    console.error('VK Bridge Init unexpected error:', e);
   } finally {
-    sendVKWebAppReady();
+    // Попытка отправить VKWebAppReady через безопасный wrapper — не должна бросать
+    void safeVkBridgeSend('VKWebAppReady');
   }
 }
 

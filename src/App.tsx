@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
 import bridge from '@vkontakte/vk-bridge';
+import { safeVkBridgeSend } from './utils/safeVkBridge';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppRoot, SplitLayout, SplitCol, View, Tabbar, TabbarItem } from './ui';
 import { Icon28UsersOutline, Icon28StoryOutline } from '@vkontakte/icons';
@@ -62,11 +63,15 @@ export default function App() {
 
     async function initBridge() {
       try {
-        await bridge.send('VKWebAppInit');
+        // Выполняем инициализацию моста (игнорируем ответ, т.к. важнее не дать UI зависнуть)
+        await safeVkBridgeSend<Record<string, unknown>>('VKWebAppInit');
+        // Разблокируем интерфейс в любом случае — даже если init не удался
         setIsBridgeReady(true);
-        
-        const p = await (bridge.send as (method: string) => Promise<Record<string, string>>)('VKWebAppGetLaunchParams');
-        if (p && typeof p === 'object') setLaunchParams(p as Record<string, string>);
+
+        const pRes = await safeVkBridgeSend<Record<string, string>>('VKWebAppGetLaunchParams');
+        if (pRes.ok && pRes.data && typeof pRes.data === 'object') {
+          setLaunchParams(pRes.data as Record<string, string>);
+        }
       } catch (err) {
         console.error('Failed to init VK bridge:', err);
         setIsBridgeReady(true); // Разблокируем интерфейс даже при ошибке
