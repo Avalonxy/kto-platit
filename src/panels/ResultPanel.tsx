@@ -110,6 +110,15 @@ function buildShareMessage(
     return pick(variants) + CTA;
   }
 
+  if (id === 'taxi') {
+    const variants = [
+      `🚕 Кто платит за такси? Жеребий решил: сегодня платит ${winner.name} — приятной поездки!\n\nВ поездке: ${names}`,
+      `🚕 Таксометры молчат, но рулетка говорит: счёт за поездку на ${winner.name}.\n\nУчастники: ${names}`,
+      `🚕 Поездку оплачивает ${winner.name} — всем безопасной дороги и тёплого вечера!\n\nВ поездке: ${names}`,
+    ];
+    return pick(variants) + CTA;
+  }
+
   // custom или неизвестный id — подбираем текст по ключевым словам в названии
   const title = scenario.title.toLowerCase();
 
@@ -475,6 +484,18 @@ export function ResultPanel({ id, result, accessDenied, onBack, onPlayAgain }: P
                     {ctaBlock.trim()}
                   </p>
                 </>
+              ) : null}
+
+              {/* Подсказка для сценария такси */}
+              {scenario.id === 'taxi' ? (
+                <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 12, background: 'rgba(0,0,0,0.03)' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <div style={{ fontSize: 18 }}>💡</div>
+                    <div style={{ fontSize: 13, color: 'var(--vkui--color_text_secondary)' }}>
+                      Подсказка: обсудите заранее сумму и способ оплаты (нал/карта/перевод) — такса может быть на двоих или по счёту. Если хотите, используйте кнопку «Ещё раз», чтобы быстро выбрать, кто платит за следующую поездку.
+                    </div>
+                  </div>
+                </div>
               ) : null}
             </Div>
           );

@@ -7,6 +7,7 @@ export const DEFAULT_SCENARIOS: Scenario[] = [
   { id: 'duty', title: 'Кто дежурит?', emoji: '📌' },
   { id: 'order', title: 'Кто заказывает еду?', emoji: '🍽️' },
   { id: 'music', title: 'Кто ставит музыку?', emoji: '🎧' },
+  { id: 'taxi', title: 'Кто платит за такси?', emoji: '🚕' },
   { id: 'custom', title: 'Свой вариант', emoji: '💡' },
 ];
 
